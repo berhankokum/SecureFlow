@@ -11,6 +11,10 @@ export function useLogout() {
     onSuccess: async () => {
       await refreshCsrfToken();
       queryClient.removeQueries({ queryKey: currentUserQueryKey });
+      queryClient.removeQueries({
+        predicate: (query) =>
+          query.queryKey[0] === "organizations" || query.queryKey[0] === "tenant",
+      });
     },
   });
 }

@@ -1,5 +1,5 @@
 import { env } from "@/app/config/env";
-import { parseErrorResponse } from "./apiError";
+import { ApiError, parseErrorResponse } from "./apiError";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -14,7 +14,10 @@ function readCookie(name: string): string | null {
  * state değişiminden sonra yeniden istenmelidir (bkz. AuthController manuel testi).
  */
 export async function refreshCsrfToken(): Promise<void> {
-  await fetch(`${env.apiBaseUrl}/antiforgery/token`, { credentials: "include" });
+  const response = await fetch(`${env.apiBaseUrl}/antiforgery/token`, { credentials: "include" });
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
 }
 
 interface RequestOptions {
@@ -31,9 +34,16 @@ async function request<TResponse>(path: string, options: RequestOptions = {}): P
   }
 
   if (!SAFE_METHODS.has(method)) {
-    const csrfToken = readCookie("XSRF-TOKEN");
+    let csrfToken = readCookie("XSRF-TOKEN");
+    if (!csrfToken) {
+      await refreshCsrfToken();
+      csrfToken = readCookie("XSRF-TOKEN");
+    }
+
     if (csrfToken) {
       headers.set("X-CSRF-TOKEN", csrfToken);
+    } else {
+      throw new ApiError(0, "Güvenli istek doğrulaması başlatılamadı.");
     }
   }
 
@@ -60,4 +70,4 @@ export const apiClient = {
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body }),
 };
 
-export { ApiError } from "./apiError";
+export { ApiError };

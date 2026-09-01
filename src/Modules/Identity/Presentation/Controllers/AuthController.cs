@@ -42,9 +42,24 @@ public sealed class AuthController(
 
         var result = await registerHandler.HandleAsync(new RegisterCommand(request.Email, request.Password), cancellationToken);
 
-        return result.IsSuccess
-            ? NoContent()
-            : Problem(title: result.Error.Message, statusCode: StatusCodes.Status400BadRequest);
+        if (result.IsSuccess)
+        {
+            return NoContent();
+        }
+
+        switch (result.Error.Code)
+        {
+            case "Identity.DuplicateEmail":
+                ModelState.AddModelError(nameof(request.Email), result.Error.Message);
+                return ValidationProblem(ModelState);
+
+            case "Identity.InvalidPassword":
+                ModelState.AddModelError(nameof(request.Password), result.Error.Message);
+                return ValidationProblem(ModelState);
+
+            default:
+                return Problem(title: result.Error.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 
     [HttpPost("login")]

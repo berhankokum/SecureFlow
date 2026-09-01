@@ -11,6 +11,10 @@ export function useLogin() {
     onSuccess: async () => {
       // Principal değişti: eski antiforgery token artık geçersiz.
       await refreshCsrfToken();
+      queryClient.removeQueries({
+        predicate: (query) =>
+          query.queryKey[0] === "organizations" || query.queryKey[0] === "tenant",
+      });
       await queryClient.invalidateQueries({ queryKey: currentUserQueryKey });
     },
   });

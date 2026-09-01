@@ -1,13 +1,13 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useLogout } from "@/features/auth/hooks/useLogout";
+import { OrganizationSwitcher } from "@/features/organizations/components/OrganizationSwitcher";
+import { useCurrentOrganization } from "@/features/organizations/hooks/useCurrentOrganization";
 
-/**
- * FAZ 1 uygulama iskeleti. TopBar/Sidebar navigasyonu, ilgili
- * feature'lar (Organizations, Projects, ...) eklendikçe FAZ 3+'ta genişler.
- */
+/** FAZ 3 tenant-aware application shell. */
 export function AppShell() {
   const { data: user } = useCurrentUser();
+  const organization = useCurrentOrganization();
   const logoutMutation = useLogout();
   const navigate = useNavigate();
 
@@ -34,9 +34,32 @@ export function AppShell() {
           </div>
         ) : null}
       </header>
-      <main className="flex-1 p-6">
-        <Outlet />
-      </main>
+      <div className="flex flex-1 flex-col md:flex-row">
+        <aside className="w-full border-b border-slate-200 bg-white p-4 md:w-64 md:border-b-0 md:border-r">
+          <OrganizationSwitcher />
+          <nav className="mt-6 space-y-1 text-sm">
+            <NavLink
+              to={`/app/${organization.slug}/dashboard`}
+              className={({ isActive }) =>
+                `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`
+              }
+            >
+              Dashboard
+            </NavLink>
+            <NavLink
+              to={`/app/${organization.slug}/settings`}
+              className={({ isActive }) =>
+                `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`
+              }
+            >
+              Ayarlar
+            </NavLink>
+          </nav>
+        </aside>
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

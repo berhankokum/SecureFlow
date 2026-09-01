@@ -58,8 +58,12 @@ public static class IdentityModule
                 options.Password.RequireNonAlphanumeric = false;
                 options.Password.RequiredLength = 8;
 
-                // Email confirmation desteklenir (BR-ID-003) ama FAZ 2 kapsamında login'i bloklamaz.
-                options.SignIn.RequireConfirmedEmail = false;
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+                // BR-ID-003: doğrulanmamış hesapla authenticated session oluşturulmaz.
+                options.SignIn.RequireConfirmedEmail = true;
             })
             .AddEntityFrameworkStores<TDbContext>()
             .AddDefaultTokenProviders() // BR-ID-004: süreli, tek kullanımlık, tahmin edilemez token'lar
@@ -73,11 +77,15 @@ public static class IdentityModule
         {
             options.Cookie.Name = "SecureFlow.Auth";
             options.Cookie.HttpOnly = true;
-            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.Cookie.SameSite = SameSiteMode.Strict;
-            options.ExpireTimeSpan = TimeSpan.FromDays(14);
+            options.Cookie.IsEssential = true;
+            options.ExpireTimeSpan = TimeSpan.FromHours(8);
             options.SlidingExpiration = true;
         });
+
+        services.Configure<SecurityStampValidatorOptions>(options =>
+            options.ValidationInterval = TimeSpan.FromMinutes(5));
 
         return services;
     }

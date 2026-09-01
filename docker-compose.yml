@@ -1,13 +1,13 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
     container_name: secureflow-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - secureflow-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -17,10 +17,10 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
     container_name: secureflow-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - secureflow-redis-data:/data
     healthcheck:
@@ -30,15 +30,15 @@ services:
       retries: 10
 
   object-storage:
-    image: minio/minio:latest
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     container_name: secureflow-object-storage
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - secureflow-object-storage-data:/data
     healthcheck:
@@ -48,11 +48,11 @@ services:
       retries: 10
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit@sha256:d5ecbb067db3705fa953d79e1b7f81ef84038df67aba6c52825d8c02a1ea748a
     container_name: secureflow-mailpit
     ports:
-      - "1025:1025" # SMTP
-      - "8025:8025" # Web UI
+      - "127.0.0.1:1025:1025" # SMTP
+      - "127.0.0.1:8025:8025" # Web UI
 
 volumes:
   secureflow-postgres-data:

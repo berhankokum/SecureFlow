@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using SecureFlow.Api.HealthChecks;
 using SecureFlow.Api.Persistence;
 using SecureFlow.Modules.Identity;
+using SecureFlow.Modules.Organizations;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -22,10 +24,23 @@ try
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails();
 
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    });
+
+    var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres");
+    if (string.IsNullOrWhiteSpace(postgresConnectionString))
+    {
+        throw new InvalidOperationException(
+            "ConnectionStrings:Postgres is required. Load the project .env file before starting SecureFlow.Api.");
+    }
+
     builder.Services.AddDbContext<SecureFlowDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+        options.UseNpgsql(postgresConnectionString));
 
     builder.Services.AddIdentityModule<SecureFlowDbContext>(builder.Configuration);
+    builder.Services.AddOrganizationsModule<SecureFlowDbContext>();
     builder.Services.AddAuthorization();
 
     builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
@@ -35,6 +50,11 @@ try
         .AddCheck<PostgresHealthCheck>("postgresql", tags: ["ready"]);
 
     var app = builder.Build();
+
+    // Reverse proxy'nin bildirdiği gerçek scheme/istemci bilgisi HTTPS ve cookie
+    // değerlendirmesinden önce uygulanır. Güvenilen proxy listesi production
+    // deployment konfigürasyonunda açıkça sınırlandırılır.
+    app.UseForwardedHeaders();
 
     app.UseSerilogRequestLogging();
 
@@ -62,7 +82,9 @@ try
         context.Response.Cookies.Append("XSRF-TOKEN", tokens.RequestToken!, new CookieOptions
         {
             HttpOnly = false,
+            Secure = true,
             SameSite = SameSiteMode.Strict,
+            IsEssential = true,
         });
         return Results.NoContent();
     }).AllowAnonymous();
