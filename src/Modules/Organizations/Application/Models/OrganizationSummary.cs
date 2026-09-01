@@ -6,5 +6,6 @@ public sealed record OrganizationSummary(
     string Slug,
     string? LogoUrl,
     string Role,
+    IReadOnlyList<string> Permissions,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ArchivedAt);

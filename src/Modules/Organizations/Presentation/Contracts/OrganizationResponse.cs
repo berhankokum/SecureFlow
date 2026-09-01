@@ -8,6 +8,7 @@ public sealed record OrganizationResponse(
     string Slug,
     string? LogoUrl,
     string Role,
+    IReadOnlyList<string> Permissions,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ArchivedAt)
 {
@@ -17,6 +18,7 @@ public sealed record OrganizationResponse(
         organization.Slug,
         organization.LogoUrl,
         organization.Role,
+        organization.Permissions,
         organization.CreatedAt,
         organization.ArchivedAt);
 }

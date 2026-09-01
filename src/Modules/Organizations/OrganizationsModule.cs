@@ -1,16 +1,19 @@
 using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
 using SecureFlow.Modules.Organizations.Application.Invitations;
 using SecureFlow.Modules.Organizations.Application.Members;
 using SecureFlow.Modules.Organizations.Application.Abstractions;
+using SecureFlow.Modules.Organizations.Application.Authorization;
 using SecureFlow.Modules.Organizations.Application.CreateOrganization;
 using SecureFlow.Modules.Organizations.Application.GetOrganization;
 using SecureFlow.Modules.Organizations.Application.ListOrganizations;
 using SecureFlow.Modules.Organizations.Presentation.Contracts;
 using SecureFlow.Modules.Organizations.Infrastructure;
 using SecureFlow.SharedKernel;
+using SecureFlow.Contracts.Authorization;
 
 namespace SecureFlow.Modules.Organizations;
 
@@ -35,6 +38,7 @@ public static class OrganizationsModule
         services.AddScoped<GetInvitationHandler>();
         services.AddScoped<AcceptInvitationHandler>();
         services.AddScoped<RevokeInvitationHandler>();
+        services.AddScoped<IAuthorizationHandler, OrganizationPermissionAuthorizationHandler>();
         services.AddScoped<IValidator<CreateOrganizationRequest>, CreateOrganizationRequestValidator>();
         services.AddScoped<IValidator<CreateInvitationRequest>, CreateInvitationRequestValidator>();
         services.AddScoped<IValidator<ChangeMemberRoleRequest>, ChangeMemberRoleRequestValidator>();
@@ -50,6 +54,20 @@ public static class OrganizationsModule
                 ?? options.FrontendBaseUrl);
 
         services.TryAddSingleton<IClock, SystemClock>();
+
+        services.AddAuthorization(options =>
+        {
+            foreach (var permission in Permissions.All)
+            {
+                options.AddPolicy(
+                    permission,
+                    policy =>
+                    {
+                        policy.RequireAuthenticatedUser();
+                        policy.AddRequirements(new PermissionRequirement(permission));
+                    });
+            }
+        });
 
         return services;
     }

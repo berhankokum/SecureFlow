@@ -7,6 +7,13 @@ const organization = {
   slug: "acme",
   logoUrl: null,
   role: "OWNER",
+  permissions: [
+    "organization.manage",
+    "member.view",
+    "member.invite",
+    "member.remove",
+    "member.role.change",
+  ],
   createdAt: "2026-09-01T00:00:00Z",
   archivedAt: null,
 };
@@ -83,7 +90,7 @@ test("invited user accepts a valid invitation and enters the members page", asyn
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([{ ...organization, role: "MEMBER" }]),
+      body: JSON.stringify([{ ...organization, role: "MEMBER", permissions: ["member.view"] }]),
     });
   });
   await page.route(`**/api/v1/invitations/${token}`, async (route) => {

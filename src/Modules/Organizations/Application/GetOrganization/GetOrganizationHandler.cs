@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SecureFlow.Modules.Organizations.Application.Abstractions;
 using SecureFlow.Modules.Organizations.Application.Models;
+using SecureFlow.Modules.Organizations.Application.Authorization;
 
 namespace SecureFlow.Modules.Organizations.Application.GetOrganization;
 
@@ -41,6 +42,7 @@ public sealed class GetOrganizationHandler(IOrganizationsDbContext dbContext)
                 organization.Slug,
                 organization.LogoUrl,
                 organization.Role.ToString().ToUpperInvariant(),
+                OrganizationAccessRules.GetPermissions(organization.Role),
                 organization.CreatedAt,
                 organization.ArchivedAt);
     }

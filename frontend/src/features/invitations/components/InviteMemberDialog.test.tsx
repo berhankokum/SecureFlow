@@ -18,7 +18,7 @@ describe("InviteMemberDialog", () => {
     const dismiss = vi.fn();
     mutateAsyncMock.mockResolvedValue({});
     renderWithProviders(
-      <InviteMemberDialog organizationId="organization-1" actorRole="OWNER" onDismiss={dismiss} />,
+      <InviteMemberDialog organizationId="organization-1" canInviteOwner onDismiss={dismiss} />,
     );
 
     await user.type(screen.getByLabelText("E-posta"), "member@example.com");
@@ -31,7 +31,7 @@ describe("InviteMemberDialog", () => {
 
   it("does not offer OWNER role to an ADMIN actor", () => {
     renderWithProviders(
-      <InviteMemberDialog organizationId="organization-1" actorRole="ADMIN" onDismiss={vi.fn()} />,
+      <InviteMemberDialog organizationId="organization-1" canInviteOwner={false} onDismiss={vi.fn()} />,
     );
 
     expect(screen.queryByRole("option", { name: "OWNER" })).not.toBeInTheDocument();

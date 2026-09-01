@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Filters;
 using SecureFlow.Modules.Organizations.Application.Invitations;
 using SecureFlow.Modules.Organizations.Presentation.Contracts;
@@ -14,6 +15,7 @@ namespace SecureFlow.Modules.Organizations.Presentation.Controllers;
 [Authorize]
 [EnableRateLimiting("invitations")]
 public sealed class OrganizationInvitationsController(
+    IAuthorizationService authorizationService,
     CreateInvitationHandler createInvitationHandler,
     ListInvitationsHandler listInvitationsHandler,
     RevokeInvitationHandler revokeInvitationHandler,
@@ -25,6 +27,17 @@ public sealed class OrganizationInvitationsController(
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
+        }
+
+        if (await OrganizationAuthorizationResult.RequirePermissionAsync(
+                this,
+                authorizationService,
+                organizationId,
+                Permissions.MemberInvite,
+                targetUserId: null,
+                cancellationToken) is { } authorizationError)
+        {
+            return authorizationError;
         }
 
         var result = await listInvitationsHandler.HandleAsync(
@@ -47,6 +60,17 @@ public sealed class OrganizationInvitationsController(
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
+        }
+
+        if (await OrganizationAuthorizationResult.RequirePermissionAsync(
+                this,
+                authorizationService,
+                organizationId,
+                Permissions.MemberInvite,
+                targetUserId: null,
+                cancellationToken) is { } authorizationError)
+        {
+            return authorizationError;
         }
 
         if (await this.ValidateAsync(createInvitationValidator, request) is { } validationError)
@@ -79,6 +103,17 @@ public sealed class OrganizationInvitationsController(
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
+        }
+
+        if (await OrganizationAuthorizationResult.RequirePermissionAsync(
+                this,
+                authorizationService,
+                organizationId,
+                Permissions.MemberInvite,
+                targetUserId: null,
+                cancellationToken) is { } authorizationError)
+        {
+            return authorizationError;
         }
 
         var result = await revokeInvitationHandler.HandleAsync(

@@ -31,6 +31,7 @@ test("creates an organization and enters its isolated tenant route", async ({ pa
         slug: "acme-software",
         logoUrl: null,
         role: "OWNER",
+        permissions: ["organization.manage", "member.view"],
         createdAt: "2026-08-29T00:00:00Z",
         archivedAt: null,
       };
@@ -59,6 +60,7 @@ test("switches organization context through the URL", async ({ page }) => {
       slug: "acme",
       logoUrl: null,
       role: "OWNER",
+      permissions: ["organization.manage", "member.view"],
       createdAt: "2026-08-29T00:00:00Z",
       archivedAt: null,
     },
@@ -68,6 +70,7 @@ test("switches organization context through the URL", async ({ page }) => {
       slug: "cybertech",
       logoUrl: null,
       role: "MEMBER",
+      permissions: ["member.view"],
       createdAt: "2026-08-29T00:00:00Z",
       archivedAt: null,
     },
@@ -93,4 +96,26 @@ test("does not render a tenant absent from the users membership list", async ({ 
 
   await expect(page.getByText("Bu organization bulunamadı veya erişim yetkiniz yok.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "other-tenant" })).not.toBeVisible();
+});
+
+test("shows a forbidden state for a deep link without the required permission", async ({ page }) => {
+  const organizations = [{
+    id: "22222222-2222-2222-2222-222222222222",
+    name: "CyberTech",
+    slug: "cybertech",
+    logoUrl: null,
+    role: "MEMBER",
+    permissions: ["member.view"],
+    createdAt: "2026-08-29T00:00:00Z",
+    archivedAt: null,
+  }];
+
+  await page.route("**/api/v1/organizations", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(organizations) });
+  });
+
+  await page.goto("/app/cybertech/settings");
+
+  await expect(page.getByRole("heading", { name: "Bu alanı görüntüleme yetkiniz yok" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ayarlar" })).not.toBeVisible();
 });

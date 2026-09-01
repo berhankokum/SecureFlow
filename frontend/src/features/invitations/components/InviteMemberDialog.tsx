@@ -1,20 +1,19 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { OrganizationRole } from "@/features/memberships/api/types";
 import { ApiError } from "@/lib/api/apiClient";
 import { useCreateInvitation } from "../hooks/useCreateInvitation";
 import { invitationSchema, type InvitationFormValues } from "../schemas/invitationSchemas";
 
 interface InviteMemberDialogProps {
   organizationId: string;
-  actorRole: OrganizationRole;
+  canInviteOwner: boolean;
   onDismiss: () => void;
 }
 
 export function InviteMemberDialog({
   organizationId,
-  actorRole,
+  canInviteOwner,
   onDismiss,
 }: InviteMemberDialogProps) {
   const [formError, setFormError] = useState<string | null>(null);
@@ -119,7 +118,7 @@ export function InviteMemberDialog({
             >
               <option value="MEMBER">MEMBER</option>
               <option value="ADMIN">ADMIN</option>
-              {actorRole === "OWNER" ? <option value="OWNER">OWNER</option> : null}
+              {canInviteOwner ? <option value="OWNER">OWNER</option> : null}
             </select>
           </div>
 
