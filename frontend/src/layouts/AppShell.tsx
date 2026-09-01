@@ -3,11 +3,14 @@ import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import { useLogout } from "@/features/auth/hooks/useLogout";
 import { OrganizationSwitcher } from "@/features/organizations/components/OrganizationSwitcher";
 import { useCurrentOrganization } from "@/features/organizations/hooks/useCurrentOrganization";
+import { usePermission } from "@/features/authorization/hooks/usePermission";
+import { permissions } from "@/features/authorization/permissions";
 
 /** FAZ 3 tenant-aware application shell. */
 export function AppShell() {
   const { data: user } = useCurrentUser();
   const organization = useCurrentOrganization();
+  const canManageOrganization = usePermission(permissions.organizationManage);
   const logoutMutation = useLogout();
   const navigate = useNavigate();
 
@@ -54,14 +57,16 @@ export function AppShell() {
             >
               Üyeler
             </NavLink>
-            <NavLink
-              to={`/app/${organization.slug}/settings`}
-              className={({ isActive }) =>
-                `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`
-              }
-            >
-              Ayarlar
-            </NavLink>
+            {canManageOrganization ? (
+              <NavLink
+                to={`/app/${organization.slug}/settings`}
+                className={({ isActive }) =>
+                  `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`
+                }
+              >
+                Ayarlar
+              </NavLink>
+            ) : null}
           </nav>
         </aside>
         <main className="flex-1 p-6">

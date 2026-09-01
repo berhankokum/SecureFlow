@@ -6,6 +6,8 @@ import { useInvitations } from "@/features/invitations/hooks/useInvitations";
 import { useRevokeInvitation } from "@/features/invitations/hooks/useRevokeInvitation";
 import { useCurrentOrganization } from "@/features/organizations/hooks/useCurrentOrganization";
 import { ApiError } from "@/lib/api/apiClient";
+import { usePermission } from "@/features/authorization/hooks/usePermission";
+import { permissions } from "@/features/authorization/permissions";
 import type { OrganizationMember, OrganizationRole } from "../api/types";
 import { useChangeMemberRole } from "../hooks/useChangeMemberRole";
 import { useMembers } from "../hooks/useMembers";
@@ -19,7 +21,9 @@ const formatDate = (value: string) => new Intl.DateTimeFormat("tr-TR", {
 export function MembersPage() {
   const organization = useCurrentOrganization();
   const { data: currentUser } = useCurrentUser();
-  const canManageInvitations = organization.role === "OWNER" || organization.role === "ADMIN";
+  const canManageInvitations = usePermission(permissions.memberInvite);
+  const canChangeRoles = usePermission(permissions.memberRoleChange);
+  const canRemoveMembers = usePermission(permissions.memberRemove);
   const membersQuery = useMembers(organization.id);
   const invitationsQuery = useInvitations(organization.id, canManageInvitations);
   const changeRoleMutation = useChangeMemberRole(organization.id);
@@ -63,10 +67,8 @@ export function MembersPage() {
     if (member.userId === currentUser?.id) {
       return true;
     }
-    if (organization.role === "OWNER") {
-      return true;
-    }
-    return organization.role === "ADMIN" && member.role === "MEMBER";
+    return canRemoveMembers
+      && (organization.role === "OWNER" || member.role === "MEMBER");
   };
 
   const revokeInvitation = async (invitationId: string) => {
@@ -125,7 +127,7 @@ export function MembersPage() {
                     ) : null}
                   </td>
                   <td className="px-5 py-4">
-                    {organization.role === "OWNER" ? (
+                    {canChangeRoles ? (
                       <select
                         aria-label={`${member.email} rolü`}
                         value={member.role}
@@ -195,7 +197,7 @@ export function MembersPage() {
       {showInviteDialog ? (
         <InviteMemberDialog
           organizationId={organization.id}
-          actorRole={organization.role}
+          canInviteOwner={canChangeRoles}
           onDismiss={() => setShowInviteDialog(false)}
         />
       ) : null}

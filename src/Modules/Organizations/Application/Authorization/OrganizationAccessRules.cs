@@ -1,24 +1,23 @@
+using SecureFlow.Contracts.Authorization;
 using SecureFlow.Modules.Organizations.Domain;
 
 namespace SecureFlow.Modules.Organizations.Application.Authorization;
 
-/// <summary>
-/// FAZ 4 için merkezi ve dar rol sınırı. FAZ 5'te permission/policy sistemine taşınır.
-/// </summary>
+/// <summary>Organization role and resource rules backed by the central permission matrix.</summary>
 public static class OrganizationAccessRules
 {
     public static bool CanViewMembers(OrganizationRole actorRole) =>
-        actorRole is OrganizationRole.Owner or OrganizationRole.Admin or OrganizationRole.Member;
+        HasPermission(actorRole, Permissions.MemberView);
 
     public static bool CanInvite(OrganizationRole actorRole, OrganizationRole invitedRole) =>
-        actorRole == OrganizationRole.Owner
-        || (actorRole == OrganizationRole.Admin && invitedRole != OrganizationRole.Owner);
+        HasPermission(actorRole, Permissions.MemberInvite)
+        && (actorRole == OrganizationRole.Owner || invitedRole != OrganizationRole.Owner);
 
     public static bool CanListOrRevokeInvitations(OrganizationRole actorRole) =>
-        actorRole is OrganizationRole.Owner or OrganizationRole.Admin;
+        HasPermission(actorRole, Permissions.MemberInvite);
 
     public static bool CanChangeRole(OrganizationRole actorRole) =>
-        actorRole == OrganizationRole.Owner;
+        HasPermission(actorRole, Permissions.MemberRoleChange);
 
     public static bool CanRemove(
         Guid actorUserId,
@@ -31,7 +30,21 @@ public static class OrganizationAccessRules
             return true;
         }
 
-        return actorRole == OrganizationRole.Owner
-            || (actorRole == OrganizationRole.Admin && targetRole == OrganizationRole.Member);
+        return HasPermission(actorRole, Permissions.MemberRemove)
+            && (actorRole == OrganizationRole.Owner || targetRole == OrganizationRole.Member);
     }
+
+    public static bool HasPermission(OrganizationRole role, string permission) =>
+        PermissionMatrix.HasPermission(ToPermissionRole(role), permission);
+
+    public static IReadOnlyList<string> GetPermissions(OrganizationRole role) =>
+        PermissionMatrix.GetPermissions(ToPermissionRole(role));
+
+    private static PermissionRole ToPermissionRole(OrganizationRole role) => role switch
+    {
+        OrganizationRole.Owner => PermissionRole.Owner,
+        OrganizationRole.Admin => PermissionRole.Admin,
+        OrganizationRole.Member => PermissionRole.Member,
+        _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown organization role."),
+    };
 }

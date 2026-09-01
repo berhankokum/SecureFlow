@@ -74,6 +74,13 @@ public class OrganizationFlowTests(AuthWebApplicationFactory factory)
         using var createdBody = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
         var organizationId = createdBody.RootElement.GetProperty("id").GetGuid();
         Assert.Equal("OWNER", createdBody.RootElement.GetProperty("role").GetString());
+        var effectivePermissions = createdBody.RootElement.GetProperty("permissions")
+            .EnumerateArray()
+            .Select(permission => permission.GetString()!)
+            .ToArray();
+        Assert.Contains("organization.manage", effectivePermissions);
+        Assert.Contains("member.role.change", effectivePermissions);
+        Assert.Contains("audit.view", effectivePermissions);
         Assert.StartsWith("guvenli-akis-", createdBody.RootElement.GetProperty("slug").GetString());
 
         using (var scope = factory.Services.CreateScope())

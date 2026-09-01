@@ -21,7 +21,8 @@ export function OrganizationSettingsPage() {
         </div>
       </dl>
       <p className="mt-4 text-sm text-slate-500">
-        Güncelleme ve archive işlemleri permission sistemi tamamlandığında etkinleştirilecek.
+        Bu route <code>organization.manage</code> izniyle korunur. Frontend kontrolü UX,
+        backend resource authorization ise güvenlik sınırıdır.
       </p>
     </section>
   );

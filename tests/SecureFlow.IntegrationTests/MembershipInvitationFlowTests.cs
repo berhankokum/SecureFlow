@@ -243,6 +243,17 @@ public partial class MembershipInvitationFlowTests(AuthWebApplicationFactory fac
             HttpStatusCode.Forbidden,
             (await member.Client.GetAsync($"/api/v1/organizations/{organizationId}/invitations")).StatusCode);
 
+        var memberOrganizations = await member.Client.GetFromJsonAsync<JsonElement[]>("/api/v1/organizations");
+        Assert.NotNull(memberOrganizations);
+        var memberOrganization = Assert.Single(
+            memberOrganizations,
+            organization => organization.GetProperty("id").GetGuid() == organizationId);
+        var memberPermissions = memberOrganization.GetProperty("permissions")
+            .EnumerateArray()
+            .Select(permission => permission.GetString()!)
+            .ToArray();
+        Assert.Equal(["member.view"], memberPermissions);
+
         owner.Client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
         var missingCsrf = await owner.Client.PostAsJsonAsync(
             $"/api/v1/organizations/{organizationId}/invitations",

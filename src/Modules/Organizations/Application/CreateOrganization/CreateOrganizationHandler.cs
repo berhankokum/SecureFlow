@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SecureFlow.Modules.Organizations.Application.Abstractions;
 using SecureFlow.Modules.Organizations.Application.Models;
+using SecureFlow.Modules.Organizations.Application.Authorization;
 using SecureFlow.Modules.Organizations.Domain;
 using SecureFlow.SharedKernel;
 
@@ -52,6 +53,7 @@ public sealed class CreateOrganizationHandler(
             organization.Slug,
             organization.LogoUrl,
             OrganizationRole.Owner.ToString().ToUpperInvariant(),
+            OrganizationAccessRules.GetPermissions(OrganizationRole.Owner),
             organization.CreatedAt,
             organization.ArchivedAt));
     }

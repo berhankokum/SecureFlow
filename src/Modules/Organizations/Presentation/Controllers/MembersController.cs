@@ -2,6 +2,7 @@ using System.Security.Claims;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Filters;
 using SecureFlow.Modules.Organizations.Application.Members;
 using SecureFlow.Modules.Organizations.Presentation.Contracts;
@@ -12,6 +13,7 @@ namespace SecureFlow.Modules.Organizations.Presentation.Controllers;
 [Route("api/v1/organizations/{organizationId:guid}/members")]
 [Authorize]
 public sealed class MembersController(
+    IAuthorizationService authorizationService,
     ListMembersHandler listMembersHandler,
     ChangeMemberRoleHandler changeMemberRoleHandler,
     RemoveMemberHandler removeMemberHandler,
@@ -23,6 +25,17 @@ public sealed class MembersController(
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
+        }
+
+        if (await OrganizationAuthorizationResult.RequirePermissionAsync(
+                this,
+                authorizationService,
+                organizationId,
+                Permissions.MemberView,
+                targetUserId: null,
+                cancellationToken) is { } authorizationError)
+        {
+            return authorizationError;
         }
 
         var result = await listMembersHandler.HandleAsync(
@@ -46,6 +59,17 @@ public sealed class MembersController(
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
+        }
+
+        if (await OrganizationAuthorizationResult.RequirePermissionAsync(
+                this,
+                authorizationService,
+                organizationId,
+                Permissions.MemberRoleChange,
+                userId,
+                cancellationToken) is { } authorizationError)
+        {
+            return authorizationError;
         }
 
         if (await this.ValidateAsync(changeRoleValidator, request) is { } validationError)
@@ -74,6 +98,17 @@ public sealed class MembersController(
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
+        }
+
+        if (await OrganizationAuthorizationResult.RequirePermissionAsync(
+                this,
+                authorizationService,
+                organizationId,
+                Permissions.MemberRemove,
+                userId,
+                cancellationToken) is { } authorizationError)
+        {
+            return authorizationError;
         }
 
         var result = await removeMemberHandler.HandleAsync(
