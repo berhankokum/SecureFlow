@@ -194,6 +194,67 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.ToTable("Organizations", (string)null);
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.Organizations.Domain.OrganizationInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OrganizationInvitations_TokenHash");
+
+                    b.HasIndex("OrganizationId", "CreatedAt")
+                        .HasDatabaseName("IX_OrganizationInvitations_OrganizationId_CreatedAt");
+
+                    b.HasIndex("OrganizationId", "Email")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OrganizationInvitations_PendingEmail")
+                        .HasFilter("\"AcceptedAt\" IS NULL AND \"RevokedAt\" IS NULL");
+
+                    b.ToTable("OrganizationInvitations", (string)null);
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Organizations.Domain.OrganizationMember", b =>
                 {
                     b.Property<Guid>("Id")
@@ -265,6 +326,21 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Organizations.Domain.OrganizationInvitation", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

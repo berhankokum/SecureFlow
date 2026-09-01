@@ -19,6 +19,8 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
 
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
 
+    public DbSet<OrganizationInvitation> OrganizationInvitations => Set<OrganizationInvitation>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -43,6 +45,12 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(member => member.InvitedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<OrganizationInvitation>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(invitation => invitation.CreatedBy)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

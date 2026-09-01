@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useLogin } from "../hooks/useLogin";
 import { loginSchema, type LoginFormValues } from "../schemas/authSchemas";
 import { ApiError } from "@/lib/api/apiClient";
@@ -10,6 +10,7 @@ export function LoginForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const loginMutation = useLogin();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     register: field,
@@ -21,7 +22,8 @@ export function LoginForm() {
     setFormError(null);
     try {
       await loginMutation.mutateAsync(values);
-      navigate("/", { replace: true });
+      const requestedPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+      navigate(requestedPath ?? "/", { replace: true });
     } catch (error) {
       setFormError(error instanceof ApiError ? error.message : "Giriş yapılamadı.");
     }

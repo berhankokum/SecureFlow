@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 using SecureFlow.Api.HealthChecks;
 using SecureFlow.Api.Persistence;
 using SecureFlow.Modules.Identity;
@@ -40,8 +43,29 @@ try
         options.UseNpgsql(postgresConnectionString));
 
     builder.Services.AddIdentityModule<SecureFlowDbContext>(builder.Configuration);
-    builder.Services.AddOrganizationsModule<SecureFlowDbContext>();
+    builder.Services.AddOrganizationsModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddAuthorization();
+
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy("invitations", context =>
+        {
+            var partitionKey = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "anonymous";
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 20,
+                    QueueLimit = 0,
+                    Window = TimeSpan.FromMinutes(1),
+                });
+        });
+    });
 
     builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
 
@@ -56,7 +80,11 @@ try
     // deployment konfigürasyonunda açıkça sınırlandırılır.
     app.UseForwardedHeaders();
 
-    app.UseSerilogRequestLogging();
+    // Invitation raw token route segment'indedir ve hiçbir log event'ine yazılamaz.
+    // Token taşımayan bütün diğer request'lerde tek-event request logging korunur.
+    app.UseWhen(
+        context => !context.Request.Path.StartsWithSegments("/api/v1/invitations"),
+        branch => branch.UseSerilogRequestLogging());
 
     if (app.Environment.IsDevelopment())
     {
@@ -70,6 +98,7 @@ try
     app.UseHttpsRedirection();
 
     app.UseAuthentication();
+    app.UseRateLimiter();
     app.UseAuthorization();
     app.UseAntiforgery();
 
