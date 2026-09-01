@@ -47,6 +47,14 @@ export function AppShell() {
               Dashboard
             </NavLink>
             <NavLink
+              to={`/app/${organization.slug}/members`}
+              className={({ isActive }) =>
+                `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`
+              }
+            >
+              Üyeler
+            </NavLink>
+            <NavLink
               to={`/app/${organization.slug}/settings`}
               className={({ isActive }) =>
                 `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`

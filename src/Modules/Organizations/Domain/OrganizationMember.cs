@@ -43,4 +43,74 @@ public sealed class OrganizationMember : Entity
         Guid creatorUserId,
         DateTimeOffset joinedAt) =>
         new(Guid.NewGuid(), organizationId, creatorUserId, OrganizationRole.Owner, joinedAt, invitedBy: null);
+
+    public static OrganizationMember CreateFromInvitation(
+        Guid organizationId,
+        Guid userId,
+        OrganizationRole role,
+        DateTimeOffset joinedAt,
+        Guid invitedBy)
+    {
+        ValidateMembershipInput(organizationId, userId, invitedBy);
+        return new(Guid.NewGuid(), organizationId, userId, role, joinedAt, invitedBy);
+    }
+
+    public void ChangeRole(OrganizationRole role)
+    {
+        if (!IsActive)
+        {
+            throw new DomainException("Çıkarılmış bir membership'in rolü değiştirilemez.");
+        }
+
+        Role = role;
+    }
+
+    public void Remove(DateTimeOffset removedAt)
+    {
+        if (!IsActive)
+        {
+            throw new DomainException("Membership zaten çıkarılmış.");
+        }
+
+        RemovedAt = removedAt;
+    }
+
+    public void Reactivate(
+        OrganizationRole role,
+        DateTimeOffset joinedAt,
+        Guid invitedBy)
+    {
+        if (IsActive)
+        {
+            throw new DomainException("Aktif membership yeniden etkinleştirilemez.");
+        }
+
+        if (invitedBy == Guid.Empty)
+        {
+            throw new ArgumentException("Inviter user id cannot be empty.", nameof(invitedBy));
+        }
+
+        Role = role;
+        JoinedAt = joinedAt;
+        InvitedBy = invitedBy;
+        RemovedAt = null;
+    }
+
+    private static void ValidateMembershipInput(Guid organizationId, Guid userId, Guid invitedBy)
+    {
+        if (organizationId == Guid.Empty)
+        {
+            throw new ArgumentException("Organization id cannot be empty.", nameof(organizationId));
+        }
+
+        if (userId == Guid.Empty)
+        {
+            throw new ArgumentException("User id cannot be empty.", nameof(userId));
+        }
+
+        if (invitedBy == Guid.Empty)
+        {
+            throw new ArgumentException("Inviter user id cannot be empty.", nameof(invitedBy));
+        }
+    }
 }

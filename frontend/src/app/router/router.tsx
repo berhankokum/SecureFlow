@@ -11,6 +11,8 @@ import { CreateOrganizationPage } from "@/features/organizations/pages/CreateOrg
 import { OrganizationDashboardPage } from "@/features/organizations/pages/OrganizationDashboardPage";
 import { OrganizationEntryPage } from "@/features/organizations/pages/OrganizationEntryPage";
 import { OrganizationSettingsPage } from "@/features/organizations/pages/OrganizationSettingsPage";
+import { MembersPage } from "@/features/memberships/pages/MembersPage";
+import { InvitationAcceptancePage } from "@/features/invitations/pages/InvitationAcceptancePage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -18,6 +20,7 @@ export const router = createBrowserRouter([
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
   { path: "/reset-password", element: <ResetPasswordPage /> },
   { path: "/confirm-email", element: <ConfirmEmailPage /> },
+  { path: "/invitations/:token", element: <InvitationAcceptancePage /> },
   {
     path: "/",
     element: <ProtectedRoute />,
@@ -33,6 +36,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="dashboard" replace /> },
               { path: "dashboard", element: <OrganizationDashboardPage /> },
+              { path: "members", element: <MembersPage /> },
               { path: "settings", element: <OrganizationSettingsPage /> },
             ],
           },

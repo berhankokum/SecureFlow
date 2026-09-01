@@ -49,6 +49,7 @@ ScaffoldingReadMe.txt
 CLAUDE.*
 rapor*
 *.md
+.playwright-mcp/
 
 CodeCoverage/
 

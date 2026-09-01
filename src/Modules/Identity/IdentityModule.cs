@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using SecureFlow.Contracts.Email;
+using SecureFlow.Contracts.Identity;
 using SecureFlow.Modules.Identity.Application.ConfirmEmail;
 using SecureFlow.Modules.Identity.Application.ForgotPassword;
 using SecureFlow.Modules.Identity.Application.Login;
@@ -32,7 +34,12 @@ public static class IdentityModule
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<FrontendOptions>(configuration.GetSection(FrontendOptions.SectionName));
 
-        services.AddTransient<IIdentityEmailSender, SmtpIdentityEmailSender>();
+        services.AddTransient<SmtpIdentityEmailSender>();
+        services.AddTransient<IIdentityEmailSender>(provider =>
+            provider.GetRequiredService<SmtpIdentityEmailSender>());
+        services.AddTransient<IEmailSender>(provider =>
+            provider.GetRequiredService<SmtpIdentityEmailSender>());
+        services.AddScoped<IUserDirectory, IdentityUserDirectory>();
 
         services.AddScoped<RegisterHandler>();
         services.AddScoped<LoginHandler>();

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using SecureFlow.Contracts.Email;
 using SecureFlow.Api.Persistence;
 using SecureFlow.Modules.Identity.Infrastructure.Email;
 using Testcontainers.PostgreSql;
@@ -45,8 +46,11 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IIdentityEmailSender>();
+            services.RemoveAll<IEmailSender>();
             services.AddSingleton<TestIdentityEmailSender>();
             services.AddSingleton<IIdentityEmailSender>(provider =>
+                provider.GetRequiredService<TestIdentityEmailSender>());
+            services.AddSingleton<IEmailSender>(provider =>
                 provider.GetRequiredService<TestIdentityEmailSender>());
         });
     }
@@ -63,7 +67,7 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
     }
 }
 
-public sealed class TestIdentityEmailSender : IIdentityEmailSender
+public sealed class TestIdentityEmailSender : IIdentityEmailSender, IEmailSender
 {
     public bool ThrowOnSend { get; set; }
 

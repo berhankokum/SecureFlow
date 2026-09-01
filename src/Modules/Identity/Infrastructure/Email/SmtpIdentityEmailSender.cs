@@ -1,12 +1,14 @@
 using System.Net.Mail;
 using Microsoft.Extensions.Options;
+using SecureFlow.Contracts.Email;
 
 namespace SecureFlow.Modules.Identity.Infrastructure.Email;
 
 /// <summary>
 /// Development ortamında Mailpit'e (docker-compose, SMTP :1025) gönderir.
 /// </summary>
-public sealed class SmtpIdentityEmailSender(IOptions<SmtpOptions> options) : IIdentityEmailSender
+public sealed class SmtpIdentityEmailSender(IOptions<SmtpOptions> options)
+    : IIdentityEmailSender, IEmailSender
 {
     public async Task SendEmailAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {

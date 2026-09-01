@@ -13,7 +13,10 @@ export function useLogout() {
       queryClient.removeQueries({ queryKey: currentUserQueryKey });
       queryClient.removeQueries({
         predicate: (query) =>
-          query.queryKey[0] === "organizations" || query.queryKey[0] === "tenant",
+          query.queryKey[0] === "organizations"
+          || query.queryKey[0] === "tenant"
+          || query.queryKey[0] === "memberships"
+          || query.queryKey[0] === "invitations",
       });
     },
   });
