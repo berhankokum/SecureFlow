@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.OpenApi" Version="2.12.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SecureFlow.SharedKernel\SecureFlow.SharedKernel.csproj" />
+    <ProjectReference Include="..\SecureFlow.Contracts\SecureFlow.Contracts.csproj" />
+    <ProjectReference Include="..\Modules\Identity\SecureFlow.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Organizations\SecureFlow.Modules.Organizations.csproj" />
+    <ProjectReference Include="..\Modules\Teams\SecureFlow.Modules.Teams.csproj" />
+    <ProjectReference Include="..\Modules\Projects\SecureFlow.Modules.Projects.csproj" />
+    <ProjectReference Include="..\Modules\WorkItems\SecureFlow.Modules.WorkItems.csproj" />
+    <ProjectReference Include="..\Modules\Collaboration\SecureFlow.Modules.Collaboration.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\SecureFlow.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\Modules\Files\SecureFlow.Modules.Files.csproj" />
+    <ProjectReference Include="..\Modules\Audit\SecureFlow.Modules.Audit.csproj" />
+  </ItemGroup>
+
+</Project>

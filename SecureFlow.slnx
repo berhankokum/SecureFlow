@@ -1,0 +1,41 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SecureFlow.Api/SecureFlow.Api.csproj" />
+    <Project Path="src/SecureFlow.Contracts/SecureFlow.Contracts.csproj" />
+    <Project Path="src/SecureFlow.SharedKernel/SecureFlow.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Audit/">
+    <Project Path="src/Modules/Audit/SecureFlow.Modules.Audit.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Collaboration/">
+    <Project Path="src/Modules/Collaboration/SecureFlow.Modules.Collaboration.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Files/">
+    <Project Path="src/Modules/Files/SecureFlow.Modules.Files.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/SecureFlow.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/SecureFlow.Modules.Notifications.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Organizations/">
+    <Project Path="src/Modules/Organizations/SecureFlow.Modules.Organizations.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Projects/">
+    <Project Path="src/Modules/Projects/SecureFlow.Modules.Projects.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Teams/">
+    <Project Path="src/Modules/Teams/SecureFlow.Modules.Teams.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/WorkItems/">
+    <Project Path="src/Modules/WorkItems/SecureFlow.Modules.WorkItems.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SecureFlow.ArchitectureTests/SecureFlow.ArchitectureTests.csproj" />
+    <Project Path="tests/SecureFlow.E2ETests/SecureFlow.E2ETests.csproj" />
+    <Project Path="tests/SecureFlow.IntegrationTests/SecureFlow.IntegrationTests.csproj" />
+    <Project Path="tests/SecureFlow.UnitTests/SecureFlow.UnitTests.csproj" />
+  </Folder>
+</Solution>

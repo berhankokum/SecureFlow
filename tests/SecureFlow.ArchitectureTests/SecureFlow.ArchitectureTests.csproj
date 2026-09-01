@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SecureFlow.Api\SecureFlow.Api.csproj" />
+    <ProjectReference Include="..\..\src\SecureFlow.SharedKernel\SecureFlow.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\SecureFlow.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Organizations\SecureFlow.Modules.Organizations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Teams\SecureFlow.Modules.Teams.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Projects\SecureFlow.Modules.Projects.csproj" />
+    <ProjectReference Include="..\..\src\Modules\WorkItems\SecureFlow.Modules.WorkItems.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Collaboration\SecureFlow.Modules.Collaboration.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\SecureFlow.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Files\SecureFlow.Modules.Files.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Audit\SecureFlow.Modules.Audit.csproj" />
+  </ItemGroup>
+
+</Project>
