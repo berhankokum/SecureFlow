@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
+using SecureFlow.Api.Configuration;
 using SecureFlow.Api.HealthChecks;
 using SecureFlow.Api.Persistence;
 using SecureFlow.Modules.Identity;
@@ -18,6 +19,18 @@ Log.Logger = new LoggerConfiguration()
 try
 {
     var builder = WebApplication.CreateBuilder(args);
+
+    // IDE'ler repository root .env dosyasını launchSettings ile otomatik yüklemez.
+    // Debug build'lerinde ve Development ortamında yalnızca eksik değerler yerel
+    // .env'den tamamlanır; gerçek environment/CLI/secret değerleri ezilmez.
+#if DEBUG
+    DevelopmentEnvironmentFile.AddMissingValues(builder.Configuration, builder.Environment.ContentRootPath);
+#else
+    if (builder.Environment.IsDevelopment())
+    {
+        DevelopmentEnvironmentFile.AddMissingValues(builder.Configuration, builder.Environment.ContentRootPath);
+    }
+#endif
 
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
@@ -36,7 +49,7 @@ try
     if (string.IsNullOrWhiteSpace(postgresConnectionString))
     {
         throw new InvalidOperationException(
-            "ConnectionStrings:Postgres is required. Load the project .env file before starting SecureFlow.Api.");
+            "ConnectionStrings:Postgres is required. Create the repository-root .env file or provide the value as an environment variable/secret.");
     }
 
     builder.Services.AddDbContext<SecureFlowDbContext>(options =>
@@ -135,6 +148,7 @@ try
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "SecureFlow.Api terminated unexpectedly during startup.");
+    Environment.ExitCode = 1;
 }
 finally
 {
