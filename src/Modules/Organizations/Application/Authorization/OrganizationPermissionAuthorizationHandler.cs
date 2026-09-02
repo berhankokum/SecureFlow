@@ -34,7 +34,7 @@ public sealed class OrganizationPermissionAuthorizationHandler(IOrganizationsDbC
             return;
         }
 
-        resource.HasActiveMembership = true;
+        resource.MarkActiveMembership();
 
         var isSelfRemoval = requirement.Permission == Permissions.MemberRemove
             && resource.TargetUserId == currentUserId;
