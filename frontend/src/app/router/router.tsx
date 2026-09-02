@@ -17,6 +17,8 @@ import { permissions } from "@/features/authorization/permissions";
 import { PermissionRoute } from "./PermissionRoute";
 import { TeamsPage } from "@/features/teams/pages/TeamsPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
+import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
+import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -46,6 +48,8 @@ export const router = createBrowserRouter([
                   { path: "members", element: <MembersPage /> },
                   { path: "teams", element: <TeamsPage /> },
                   { path: "teams/:teamId", element: <TeamDetailPage /> },
+                  { path: "projects", element: <ProjectsPage /> },
+                  { path: "projects/:projectKey", element: <ProjectDetailPage /> },
                 ],
               },
               {

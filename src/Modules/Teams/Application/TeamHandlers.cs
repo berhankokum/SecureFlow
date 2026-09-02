@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using System.Data;
 using SecureFlow.Contracts.Identity;
 using SecureFlow.Modules.Teams.Application.Abstractions;
 using SecureFlow.Modules.Teams.Application.Models;
@@ -149,6 +150,10 @@ public sealed class AddTeamMemberHandler(ITeamsDbContext dbContext, IClock clock
 {
     public async Task<Result> HandleAsync(AddTeamMemberCommand command, CancellationToken cancellationToken)
     {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+
         var team = await dbContext.Teams
             .Include(item => item.Members)
             .SingleOrDefaultAsync(item => item.Id == command.TeamId, cancellationToken);
@@ -181,11 +186,16 @@ public sealed class AddTeamMemberHandler(ITeamsDbContext dbContext, IClock clock
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             return Result.Success();
         }
         catch (DbUpdateException exception) when (IsDuplicateMembership(exception))
         {
             return Result.Failure(TeamErrors.ExistingMember);
+        }
+        catch (Exception exception) when (IsSerializationFailure(exception))
+        {
+            return Result.Failure(TeamErrors.ConcurrentMembership);
         }
     }
 
@@ -195,6 +205,19 @@ public sealed class AddTeamMemberHandler(ITeamsDbContext dbContext, IClock clock
             SqlState: PostgresErrorCodes.UniqueViolation,
             ConstraintName: "PK_TeamMembers",
         };
+
+    private static bool IsSerializationFailure(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException { SqlState: PostgresErrorCodes.SerializationFailure })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 public sealed class RemoveTeamMemberHandler(ITeamsDbContext dbContext)

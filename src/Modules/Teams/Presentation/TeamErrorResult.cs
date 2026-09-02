@@ -14,7 +14,8 @@ internal static class TeamErrorResult
             "Teams.OrganizationArchived"
                 or "Teams.Archived"
                 or "Teams.MemberMustBelongToOrganization"
-                or "Teams.ExistingMember" => StatusCodes.Status409Conflict,
+                or "Teams.ExistingMember"
+                or "Teams.ConcurrentMembership" => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status400BadRequest,
         };
 

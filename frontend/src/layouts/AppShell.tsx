@@ -65,6 +65,14 @@ export function AppShell() {
             >
               Teams
             </NavLink>
+            <NavLink
+              to={`/app/${organization.slug}/projects`}
+              className={({ isActive }) =>
+                `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`
+              }
+            >
+              Projects
+            </NavLink>
             {canManageOrganization ? (
               <NavLink
                 to={`/app/${organization.slug}/settings`}

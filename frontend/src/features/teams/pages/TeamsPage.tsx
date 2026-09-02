@@ -8,7 +8,7 @@ import { useCreateTeam, useTeams } from "../hooks/useTeams";
 
 export function TeamsPage() {
   const organization = useCurrentOrganization();
-  const canCreate = usePermission(permissions.teamCreate);
+  const canCreate = usePermission(permissions.teamCreate) && !organization.archivedAt;
   const teamsQuery = useTeams(organization.id);
   const createMutation = useCreateTeam(organization.id);
   const [creating, setCreating] = useState(false);

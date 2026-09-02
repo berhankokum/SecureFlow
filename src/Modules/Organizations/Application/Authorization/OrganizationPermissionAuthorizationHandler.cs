@@ -6,7 +6,9 @@ using SecureFlow.Modules.Organizations.Application.Abstractions;
 
 namespace SecureFlow.Modules.Organizations.Application.Authorization;
 
-public sealed class OrganizationPermissionAuthorizationHandler(IOrganizationsDbContext dbContext)
+public sealed class OrganizationPermissionAuthorizationHandler(
+    IOrganizationsDbContext dbContext,
+    IEnumerable<IOrganizationPermissionContributor> permissionContributors)
     : AuthorizationHandler<PermissionRequirement, OrganizationAuthorizationResource>
 {
     protected override async Task HandleRequirementAsync(
@@ -43,6 +45,21 @@ public sealed class OrganizationPermissionAuthorizationHandler(IOrganizationsDbC
             || OrganizationAccessRules.HasPermission(membership.Role, requirement.Permission))
         {
             context.Succeed(requirement);
+            return;
+        }
+
+        foreach (var contributor in permissionContributors)
+        {
+            var permissions = await contributor.GetOrganizationScopedPermissionsAsync(
+                resource.OrganizationId,
+                currentUserId,
+                resource.CancellationToken);
+
+            if (permissions.Contains(requirement.Permission, StringComparer.Ordinal))
+            {
+                context.Succeed(requirement);
+                return;
+            }
         }
     }
 }
