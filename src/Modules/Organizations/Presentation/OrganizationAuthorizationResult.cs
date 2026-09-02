@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SecureFlow.Modules.Organizations.Application.Authorization;
+using SecureFlow.Contracts.Authorization;
 
 namespace SecureFlow.Modules.Organizations.Presentation;
 

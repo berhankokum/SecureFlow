@@ -5,6 +5,7 @@ using SecureFlow.Modules.Organizations.Application.Authorization;
 using SecureFlow.Modules.Organizations.Application.Concurrency;
 using SecureFlow.Modules.Organizations.Domain;
 using SecureFlow.SharedKernel;
+using SecureFlow.Contracts.Organizations;
 
 namespace SecureFlow.Modules.Organizations.Application.Members;
 
@@ -15,7 +16,8 @@ public sealed record RemoveMemberCommand(
 
 public sealed class RemoveMemberHandler(
     IOrganizationsDbContext dbContext,
-    IClock clock)
+    IClock clock,
+    IEnumerable<IOrganizationMembershipRemovalCleanup> removalCleanups)
 {
     public async Task<Result> HandleAsync(
         RemoveMemberCommand command,
@@ -72,8 +74,16 @@ public sealed class RemoveMemberHandler(
 
         target.Remove(clock.UtcNow);
 
+        foreach (var cleanup in removalCleanups)
+        {
+            await cleanup.RemoveActiveRelationshipsAsync(
+                command.OrganizationId,
+                command.TargetUserId,
+                cancellationToken);
+        }
+
         // BR-MEMBER-005 assignment cleanup, WorkItem/assignment modeli FAZ 7-8'de
-        // eklendiğinde bu SaveChanges transaction'ına bağlanacaktır.
+        // eklendiğinde aynı cleanup sözleşmesiyle bu transaction'a bağlanacaktır.
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);

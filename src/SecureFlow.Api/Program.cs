@@ -10,6 +10,7 @@ using SecureFlow.Api.HealthChecks;
 using SecureFlow.Api.Persistence;
 using SecureFlow.Modules.Identity;
 using SecureFlow.Modules.Organizations;
+using SecureFlow.Modules.Teams;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -57,6 +58,7 @@ try
 
     builder.Services.AddIdentityModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddOrganizationsModule<SecureFlowDbContext>(builder.Configuration);
+    builder.Services.AddTeamsModule<SecureFlowDbContext>();
     builder.Services.AddAuthorization();
 
     builder.Services.AddRateLimiter(options =>

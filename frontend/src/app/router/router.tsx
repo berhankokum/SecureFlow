@@ -15,6 +15,8 @@ import { MembersPage } from "@/features/memberships/pages/MembersPage";
 import { InvitationAcceptancePage } from "@/features/invitations/pages/InvitationAcceptancePage";
 import { permissions } from "@/features/authorization/permissions";
 import { PermissionRoute } from "./PermissionRoute";
+import { TeamsPage } from "@/features/teams/pages/TeamsPage";
+import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -40,7 +42,11 @@ export const router = createBrowserRouter([
               { path: "dashboard", element: <OrganizationDashboardPage /> },
               {
                 element: <PermissionRoute permission={permissions.memberView} />,
-                children: [{ path: "members", element: <MembersPage /> }],
+                children: [
+                  { path: "members", element: <MembersPage /> },
+                  { path: "teams", element: <TeamsPage /> },
+                  { path: "teams/:teamId", element: <TeamDetailPage /> },
+                ],
               },
               {
                 element: <PermissionRoute permission={permissions.organizationManage} />,
