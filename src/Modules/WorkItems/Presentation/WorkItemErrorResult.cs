@@ -1,0 +1,24 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using SecureFlow.SharedKernel;
+
+namespace SecureFlow.Modules.WorkItems.Presentation;
+
+internal static class WorkItemErrorResult
+{
+    public static IActionResult Map(ControllerBase controller, Error error)
+    {
+        var statusCode = error.Code switch
+        {
+            "WorkItems.NotFound" => StatusCodes.Status404NotFound,
+            "WorkItems.Forbidden" => StatusCodes.Status403Forbidden,
+            "WorkItems.ProjectArchived"
+                or "WorkItems.Archived"
+                or "WorkItems.NumberConflict"
+                or "WorkItems.NumberExhausted" => StatusCodes.Status409Conflict,
+            _ => StatusCodes.Status400BadRequest,
+        };
+
+        return controller.Problem(title: error.Message, statusCode: statusCode);
+    }
+}

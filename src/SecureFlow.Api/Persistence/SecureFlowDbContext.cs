@@ -7,7 +7,10 @@ using SecureFlow.Modules.Teams.Application.Abstractions;
 using SecureFlow.Modules.Teams.Domain;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Modules.Projects.Application.Abstractions;
+using SecureFlow.Modules.Projects.Application.Authorization;
 using SecureFlow.Modules.Projects.Domain;
+using SecureFlow.Modules.WorkItems.Application.Abstractions;
+using SecureFlow.Modules.WorkItems.Domain;
 
 namespace SecureFlow.Api.Persistence;
 
@@ -18,7 +21,8 @@ namespace SecureFlow.Api.Persistence;
 /// Her modül kendi entity configuration'larını ApplyConfigurationsFromAssembly ile katar.
 /// </summary>
 public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options)
-    : IdentityUserContext<ApplicationUser, Guid>(options), IOrganizationsDbContext, ITeamsDbContext, IProjectsDbContext
+    : IdentityUserContext<ApplicationUser, Guid>(options), IOrganizationsDbContext, ITeamsDbContext,
+        IProjectsDbContext, IWorkItemsDbContext
 {
     public DbSet<Organization> Organizations => Set<Organization>();
 
@@ -33,6 +37,8 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
     public DbSet<Project> Projects => Set<Project>();
 
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+
+    public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
     public async Task<PermissionRole?> GetActiveOrganizationRoleAsync(
         Guid organizationId,
@@ -73,6 +79,74 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
                 && member.RemovedAt == null,
             cancellationToken);
 
+    public async Task<bool> LockProjectAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        var lockedProjectId = await Database.SqlQuery<Guid>(
+                $"SELECT \"Id\" AS \"Value\" FROM \"Projects\" WHERE \"Id\" = {projectId} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken);
+        return lockedProjectId != Guid.Empty;
+    }
+
+    public Task<Guid?> FindProjectOrganizationIdAsync(
+        Guid projectId,
+        CancellationToken cancellationToken) =>
+        Projects
+            .AsNoTracking()
+            .Where(project => project.Id == projectId)
+            .Select(project => (Guid?)project.OrganizationId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<WorkItemProjectContext?> GetWorkItemProjectContextAsync(
+        Guid projectId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var project = await Projects
+            .AsNoTracking()
+            .Where(item => item.Id == projectId)
+            .Select(item => new
+            {
+                item.Id,
+                item.OrganizationId,
+                item.Key,
+                IsArchived = item.ArchivedAt != null,
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (project is null)
+        {
+            return null;
+        }
+
+        var organizationRole = await GetActiveOrganizationRoleAsync(
+            project.OrganizationId,
+            userId,
+            cancellationToken);
+        if (organizationRole is null)
+        {
+            return new WorkItemProjectContext(
+                project.Id, project.OrganizationId, project.Key, project.IsArchived, false, []);
+        }
+
+        var projectRole = await ProjectMembers
+            .AsNoTracking()
+            .Where(member => member.ProjectId == projectId && member.UserId == userId)
+            .Select(member => (ProjectRole?)member.Role)
+            .SingleOrDefaultAsync(cancellationToken);
+        var hasProjectAccess = organizationRole is PermissionRole.Owner or PermissionRole.Admin
+            || projectRole is not null;
+        var permissions = hasProjectAccess
+            ? ProjectAuthorizationEvaluator.GetPermissions(organizationRole.Value, projectRole)
+            : [];
+
+        return new WorkItemProjectContext(
+            project.Id,
+            project.OrganizationId,
+            project.Key,
+            project.IsArchived,
+            hasProjectAccess,
+            permissions);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -80,6 +154,7 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Organization).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Team).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Project).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(WorkItem).Assembly);
 
         // Cross-module user references composition root'ta kurulur; domain modülleri
         // birbirlerinin assembly'lerine bağımlı hale getirilmez.
@@ -135,6 +210,23 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(member => member.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Project>()
+            .HasAlternateKey(project => new { project.Id, project.OrganizationId })
+            .HasName("AK_Projects_Id_OrganizationId");
+
+        modelBuilder.Entity<WorkItem>()
+            .HasOne<Project>()
+            .WithMany()
+            .HasForeignKey(workItem => new { workItem.ProjectId, workItem.OrganizationId })
+            .HasPrincipalKey(project => new { project.Id, project.OrganizationId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WorkItem>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(workItem => workItem.ReporterId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<TeamMember>()
