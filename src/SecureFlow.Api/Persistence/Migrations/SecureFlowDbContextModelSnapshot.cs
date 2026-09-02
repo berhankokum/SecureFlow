@@ -294,6 +294,83 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.ToTable("OrganizationMembers", (string)null);
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.Projects.Domain.Project", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("OrganizationId")
+                        .HasDatabaseName("IX_Projects_OrganizationId");
+
+                    b.HasIndex("OrganizationId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Projects_OrganizationId_Key");
+
+                    b.ToTable("Projects", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Projects_Key_Format", "\"Key\" ~ '^[A-Z][A-Z0-9]{1,9}$'");
+                        });
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Projects.Domain.ProjectMember", b =>
+                {
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("ProjectRole");
+
+                    b.HasKey("ProjectId", "UserId");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_ProjectMembers_UserId");
+
+                    b.ToTable("ProjectMembers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProjectMembers_ProjectRole", "\"ProjectRole\" IN ('Manager', 'Contributor', 'Viewer')");
+                        });
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Teams.Domain.Team", b =>
                 {
                     b.Property<Guid>("Id")
@@ -424,6 +501,36 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.Projects.Domain.Project", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Projects.Domain.ProjectMember", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Projects.Domain.Project", null)
+                        .WithMany("Members")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Teams.Domain.Team", b =>
                 {
                     b.HasOne("SecureFlow.Modules.Organizations.Domain.Organization", null)
@@ -455,6 +562,11 @@ namespace SecureFlow.Api.Persistence.Migrations
                 });
 
             modelBuilder.Entity("SecureFlow.Modules.Organizations.Domain.Organization", b =>
+                {
+                    b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Projects.Domain.Project", b =>
                 {
                     b.Navigation("Members");
                 });

@@ -16,6 +16,7 @@ public class PlaywrightSuiteConfigurationTests
         Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "organization-flow.spec.ts")));
         Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "membership-invitation.spec.ts")));
         Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "team-flow.spec.ts")));
+        Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "project-flow.spec.ts")));
     }
 
     private static string FindRepositoryRoot(

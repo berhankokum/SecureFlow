@@ -21,4 +21,7 @@ public static class TeamErrors
 
     public static readonly Error MemberNotFound =
         new("Teams.MemberNotFound", "Team membership bulunamadı.");
+
+    public static readonly Error ConcurrentMembership =
+        new("Teams.ConcurrentMembership", "Team membership eşzamanlı olarak değişti. Lütfen tekrar deneyin.");
 }

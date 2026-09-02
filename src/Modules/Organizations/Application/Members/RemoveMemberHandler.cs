@@ -82,7 +82,7 @@ public sealed class RemoveMemberHandler(
                 cancellationToken);
         }
 
-        // BR-MEMBER-005 assignment cleanup, WorkItem/assignment modeli FAZ 7-8'de
+        // BR-MEMBER-005 WorkItem assignment cleanup, assignment modeli FAZ 10'da
         // eklendiğinde aynı cleanup sözleşmesiyle bu transaction'a bağlanacaktır.
         try
         {

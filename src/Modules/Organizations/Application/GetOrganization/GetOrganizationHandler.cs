@@ -2,10 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using SecureFlow.Modules.Organizations.Application.Abstractions;
 using SecureFlow.Modules.Organizations.Application.Models;
 using SecureFlow.Modules.Organizations.Application.Authorization;
+using SecureFlow.Contracts.Authorization;
 
 namespace SecureFlow.Modules.Organizations.Application.GetOrganization;
 
-public sealed class GetOrganizationHandler(IOrganizationsDbContext dbContext)
+public sealed class GetOrganizationHandler(
+    IOrganizationsDbContext dbContext,
+    IEnumerable<IOrganizationPermissionContributor> permissionContributors)
 {
     public async Task<OrganizationSummary?> HandleAsync(
         Guid organizationId,
@@ -34,15 +37,29 @@ public sealed class GetOrganizationHandler(IOrganizationsDbContext dbContext)
                 })
             .SingleOrDefaultAsync(cancellationToken);
 
-        return organization is null
-            ? null
-            : new OrganizationSummary(
+        if (organization is null)
+        {
+            return null;
+        }
+
+        var permissions = new HashSet<string>(
+            OrganizationAccessRules.GetPermissions(organization.Role),
+            StringComparer.Ordinal);
+        foreach (var contributor in permissionContributors)
+        {
+            permissions.UnionWith(await contributor.GetOrganizationScopedPermissionsAsync(
+                organization.Id,
+                currentUserId,
+                cancellationToken));
+        }
+
+        return new OrganizationSummary(
                 organization.Id,
                 organization.Name,
                 organization.Slug,
                 organization.LogoUrl,
                 organization.Role.ToString().ToUpperInvariant(),
-                OrganizationAccessRules.GetPermissions(organization.Role),
+                permissions.Order(StringComparer.Ordinal).ToArray(),
                 organization.CreatedAt,
                 organization.ArchivedAt);
     }
