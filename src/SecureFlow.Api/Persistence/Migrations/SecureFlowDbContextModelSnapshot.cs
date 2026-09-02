@@ -331,6 +331,9 @@ namespace SecureFlow.Api.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("Id", "OrganizationId")
+                        .HasName("AK_Projects_Id_OrganizationId");
+
                     b.HasIndex("CreatedBy");
 
                     b.HasIndex("OrganizationId")
@@ -428,6 +431,81 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .HasDatabaseName("IX_TeamMembers_UserId");
 
                     b.ToTable("TeamMembers", (string)null);
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.WorkItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<long>("Number")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReporterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("IX_WorkItems_ProjectId");
+
+                    b.HasIndex("ReporterId");
+
+                    b.HasIndex("ProjectId", "DueDate")
+                        .HasDatabaseName("IX_WorkItems_ProjectId_DueDate");
+
+                    b.HasIndex("ProjectId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkItems_ProjectId_Number");
+
+                    b.HasIndex("ProjectId", "OrganizationId");
+
+                    b.ToTable("WorkItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkItems_Number_Positive", "\"Number\" > 0");
+
+                            t.HasCheckConstraint("CK_WorkItems_Priority", "\"Priority\" IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')");
+
+                            t.HasCheckConstraint("CK_WorkItems_Type", "\"Type\" IN ('TASK', 'BUG', 'STORY')");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -557,6 +635,22 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.WorkItem", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ReporterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.Projects.Domain.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "OrganizationId")
+                        .HasPrincipalKey("Id", "OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -19,6 +19,7 @@ import { TeamsPage } from "@/features/teams/pages/TeamsPage";
 import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
+import { WorkItemDetailPage } from "@/features/work-items/pages/WorkItemDetailPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
                   { path: "teams/:teamId", element: <TeamDetailPage /> },
                   { path: "projects", element: <ProjectsPage /> },
                   { path: "projects/:projectKey", element: <ProjectDetailPage /> },
+                  { path: "work-items/:workItemKey", element: <WorkItemDetailPage /> },
                 ],
               },
               {
