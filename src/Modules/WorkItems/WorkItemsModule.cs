@@ -21,6 +21,8 @@ public static class WorkItemsModule
         services.AddScoped<GetWorkItemHandler>();
         services.AddScoped<UpdateWorkItemHandler>();
         services.AddScoped<ArchiveWorkItemHandler>();
+        services.AddScoped<LabelHandlers>();
+        services.AddScoped<IValidator<LabelNameRequest>, LabelNameRequestValidator>();
         services.AddScoped<IValidator<CreateWorkItemRequest>, CreateWorkItemRequestValidator>();
         services.AddScoped<IValidator<UpdateWorkItemRequest>, UpdateWorkItemRequestValidator>();
         services.TryAddSingleton<IClock, SystemClock>();

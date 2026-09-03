@@ -27,7 +27,7 @@ vi.mock("../hooks/useWorkItems", () => ({
     projectKey: "SF", number: 1, key: "SF-1", type: "BUG", title: "Tenant isolation",
     description: null, priority: "CRITICAL", reporterId: "owner", reporterEmail: "owner@example.com", dueDate: null,
     createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null,
-    permissions: ["workitem.update"],
+    permissions: ["workitem.update"], labels: [{ id: "label-1", name: "Security", assignedBy: "owner", assignedAt: "2026-09-02T00:00:00Z" }],
   }], isLoading: false, isError: false }),
   useCreateWorkItem: () => ({ mutateAsync: create }),
 }));
@@ -41,6 +41,7 @@ describe("ProjectWorkItemsSection", () => {
 
     expect(screen.getByText("SF-1")).toBeInTheDocument();
     expect(screen.getByText("Tenant isolation")).toBeInTheDocument();
+    expect(screen.getByText("Security")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "WorkItem oluştur" }));
     await user.selectOptions(screen.getByLabelText("Tür"), "STORY");
     await user.type(screen.getByLabelText("Başlık"), "Permission-aware UI");

@@ -34,6 +34,7 @@ test("owner creates a project with an immutable key and opens its settings", asy
   });
   await page.route("**/api/v1/projects/project-1", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "project-1", organizationId: organization.id, key: "WEB", name: "Web Platform", description: "Frontend", createdBy: "owner", createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null, projectRole: "MANAGER", permissions: ["project.update", "project.archive"], members: [{ userId: "owner", email: "owner@example.com", role: "MANAGER" }] }) }));
   await page.route("**/api/v1/projects/project-1/work-items", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("**/api/v1/projects/project-1/labels", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await page.route(`**/api/v1/organizations/${organization.id}/members`, route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
 
   await page.goto("/app/acme/projects");

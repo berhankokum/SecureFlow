@@ -33,7 +33,8 @@ internal static class WorkItemModelMapper
     public static WorkItemSummary ToSummary(
         WorkItem workItem,
         WorkItemProjectContext project,
-        string reporterEmail) =>
+        string reporterEmail,
+        IReadOnlyList<WorkItemLabelSummary>? labels = null) =>
         new(
             workItem.Id,
             workItem.OrganizationId,
@@ -51,7 +52,22 @@ internal static class WorkItemModelMapper
             workItem.CreatedAt,
             workItem.UpdatedAt,
             workItem.ArchivedAt,
-            project.Permissions);
+            project.Permissions,
+            labels ?? []);
+
+    public static async Task<ILookup<Guid, WorkItemLabelSummary>> LoadLabelsAsync(
+        IWorkItemsDbContext dbContext, Guid projectId, Guid? workItemId, CancellationToken cancellationToken)
+    {
+        var labels = await (
+            from assignment in dbContext.WorkItemLabels.AsNoTracking()
+            join label in dbContext.Labels.AsNoTracking() on assignment.LabelId equals label.Id
+            where label.ProjectId == projectId && (workItemId == null || assignment.WorkItemId == workItemId)
+            orderby label.Name
+            select new { assignment.WorkItemId, Label = new WorkItemLabelSummary(
+                label.Id, label.Name, assignment.AssignedBy, assignment.AssignedAt) })
+            .ToArrayAsync(cancellationToken);
+        return labels.ToLookup(item => item.WorkItemId, item => item.Label);
+    }
 }
 
 public sealed class FindProjectScopeHandler(IWorkItemsDbContext dbContext)
@@ -180,11 +196,13 @@ public sealed class ListWorkItemsHandler(IWorkItemsDbContext dbContext, IUserDir
             workItems.Select(workItem => workItem.ReporterId).Distinct().ToArray(),
             cancellationToken);
 
+        var labels = await WorkItemModelMapper.LoadLabelsAsync(dbContext, projectId, null, cancellationToken);
         return Result.Success<IReadOnlyList<WorkItemSummary>>(
             workItems.Select(workItem => WorkItemModelMapper.ToSummary(
                 workItem,
                 project,
-                reporterEmails.GetValueOrDefault(workItem.ReporterId, "Bilinmeyen kullanıcı"))).ToArray());
+                reporterEmails.GetValueOrDefault(workItem.ReporterId, "Bilinmeyen kullanıcı"),
+                labels[workItem.Id].ToArray())).ToArray());
     }
 }
 
@@ -213,10 +231,13 @@ public sealed class GetWorkItemHandler(IWorkItemsDbContext dbContext, IUserDirec
         }
 
         var reporter = await userDirectory.FindByIdAsync(workItem.ReporterId, cancellationToken);
+        var labels = await WorkItemModelMapper.LoadLabelsAsync(
+            dbContext, workItem.ProjectId, workItemId, cancellationToken);
         return Result.Success(WorkItemModelMapper.ToSummary(
             workItem,
             project,
-            reporter?.Email ?? "Bilinmeyen kullanıcı"));
+            reporter?.Email ?? "Bilinmeyen kullanıcı",
+            labels[workItemId].ToArray()));
     }
 }
 
