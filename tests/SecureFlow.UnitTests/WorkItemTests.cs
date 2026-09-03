@@ -89,6 +89,30 @@ public class WorkItemTests
             null,
             Today,
             Now.AddHours(2)));
+        Assert.Throws<DomainException>(() => workItem.Assign(Guid.NewGuid(), Now.AddHours(2)));
+        Assert.Throws<DomainException>(() => workItem.Unassign(Now.AddHours(2)));
+    }
+
+    [Fact]
+    public void Assignment_supports_reassign_and_unassign_without_mutating_on_idempotent_calls()
+    {
+        var workItem = Create();
+        var firstUser = Guid.NewGuid();
+        var secondUser = Guid.NewGuid();
+
+        Assert.True(workItem.Assign(firstUser, Now.AddMinutes(1)));
+        Assert.Equal(firstUser, workItem.AssigneeId);
+        Assert.Equal(Now.AddMinutes(1), workItem.UpdatedAt);
+        Assert.False(workItem.Assign(firstUser, Now.AddMinutes(2)));
+        Assert.Equal(Now.AddMinutes(1), workItem.UpdatedAt);
+        Assert.True(workItem.Assign(secondUser, Now.AddMinutes(3)));
+        Assert.Equal(secondUser, workItem.AssigneeId);
+        Assert.True(workItem.Unassign(Now.AddMinutes(4)));
+        Assert.Null(workItem.AssigneeId);
+        Assert.Equal(Now.AddMinutes(4), workItem.UpdatedAt);
+        Assert.False(workItem.Unassign(Now.AddMinutes(5)));
+        Assert.Equal(Now.AddMinutes(4), workItem.UpdatedAt);
+        Assert.Throws<ArgumentException>(() => workItem.Assign(Guid.Empty, Now));
     }
 
     private static WorkItem Create(

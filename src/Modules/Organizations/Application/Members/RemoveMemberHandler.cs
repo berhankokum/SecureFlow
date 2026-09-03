@@ -38,6 +38,14 @@ public sealed class RemoveMemberHandler(
             return Result.Failure(OrganizationErrors.NotFound);
         }
 
+        if (!await dbContext.LockOrganizationMemberAsync(
+                command.OrganizationId,
+                command.TargetUserId,
+                cancellationToken))
+        {
+            return Result.Failure(OrganizationErrors.MemberNotFound);
+        }
+
         var target = await dbContext.OrganizationMembers.SingleOrDefaultAsync(member =>
             member.OrganizationId == command.OrganizationId
             && member.UserId == command.TargetUserId
@@ -82,8 +90,8 @@ public sealed class RemoveMemberHandler(
                 cancellationToken);
         }
 
-        // BR-MEMBER-005 WorkItem assignment cleanup, assignment modeli FAZ 10'da
-        // eklendiğinde aynı cleanup sözleşmesiyle bu transaction'a bağlanacaktır.
+        // Module cleanups run inside this transaction; WorkItems clears active
+        // assignments while preserving archived historical assignment data.
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);

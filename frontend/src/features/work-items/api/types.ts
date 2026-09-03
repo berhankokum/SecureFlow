@@ -17,6 +17,8 @@ export interface WorkItem {
   priority: WorkItemPriority;
   reporterId: string;
   reporterEmail: string;
+  assigneeId: string | null;
+  assigneeEmail: string | null;
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;

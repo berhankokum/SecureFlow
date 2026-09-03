@@ -15,6 +15,8 @@ public sealed record WorkItemSummary(
     WorkItemPriority Priority,
     Guid ReporterId,
     string ReporterEmail,
+    Guid? AssigneeId,
+    string? AssigneeEmail,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,

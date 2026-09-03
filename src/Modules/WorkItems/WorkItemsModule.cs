@@ -5,6 +5,8 @@ using SecureFlow.Modules.WorkItems.Application;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Presentation.Contracts;
 using SecureFlow.SharedKernel;
+using SecureFlow.Contracts.Organizations;
+using SecureFlow.Contracts.Projects;
 
 namespace SecureFlow.Modules.WorkItems;
 
@@ -22,9 +24,13 @@ public static class WorkItemsModule
         services.AddScoped<UpdateWorkItemHandler>();
         services.AddScoped<ArchiveWorkItemHandler>();
         services.AddScoped<LabelHandlers>();
+        services.AddScoped<AssignmentHandler>();
+        services.AddScoped<IOrganizationMembershipRemovalCleanup, WorkItemOrganizationMembershipRemovalCleanup>();
+        services.AddScoped<IProjectMembershipRemovalCleanup, WorkItemProjectMembershipRemovalCleanup>();
         services.AddScoped<IValidator<LabelNameRequest>, LabelNameRequestValidator>();
         services.AddScoped<IValidator<CreateWorkItemRequest>, CreateWorkItemRequestValidator>();
         services.AddScoped<IValidator<UpdateWorkItemRequest>, UpdateWorkItemRequestValidator>();
+        services.AddScoped<IValidator<AssignWorkItemRequest>, AssignWorkItemRequestValidator>();
         services.TryAddSingleton<IClock, SystemClock>();
         return services;
     }

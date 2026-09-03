@@ -25,11 +25,14 @@ vi.mock("../hooks/useWorkItems", () => ({
   useWorkItems: () => ({ data: [{
     id: "workitem-1", organizationId: "organization-1", projectId: "project-1",
     projectKey: "SF", number: 1, key: "SF-1", type: "BUG", title: "Tenant isolation",
-    description: null, priority: "CRITICAL", reporterId: "owner", reporterEmail: "owner@example.com", dueDate: null,
+    description: null, priority: "CRITICAL", reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: "owner", assigneeEmail: "owner@example.com", dueDate: null,
     createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null,
     permissions: ["workitem.update"], labels: [{ id: "label-1", name: "Security", assignedBy: "owner", assignedAt: "2026-09-02T00:00:00Z" }],
   }], isLoading: false, isError: false }),
   useCreateWorkItem: () => ({ mutateAsync: create }),
+}));
+vi.mock("@/features/auth/hooks/useCurrentUser", () => ({
+  useCurrentUser: () => ({ data: { id: "owner", email: "owner@example.com" } }),
 }));
 
 describe("ProjectWorkItemsSection", () => {
@@ -60,5 +63,13 @@ describe("ProjectWorkItemsSection", () => {
   it("hides create action for a read-only project role", () => {
     renderWithProviders(<ProjectWorkItemsSection project={{ ...project, permissions: [] }} />);
     expect(screen.queryByRole("button", { name: "WorkItem oluştur" })).not.toBeInTheDocument();
+  });
+
+  it("filters My Work using the server-owned assignee id", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ProjectWorkItemsSection project={project} />);
+    await user.click(screen.getByRole("button", { name: "Bana atananlar" }));
+    expect(screen.getByText("Tenant isolation")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bana atananlar" })).toHaveAttribute("aria-pressed", "true");
   });
 });

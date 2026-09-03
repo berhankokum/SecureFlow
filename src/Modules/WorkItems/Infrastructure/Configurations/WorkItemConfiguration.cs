@@ -40,5 +40,7 @@ public sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasDatabaseName("UX_WorkItems_ProjectId_Number");
         builder.HasIndex(workItem => new { workItem.ProjectId, workItem.DueDate })
             .HasDatabaseName("IX_WorkItems_ProjectId_DueDate");
+        builder.HasIndex(workItem => new { workItem.ProjectId, workItem.AssigneeId })
+            .HasDatabaseName("IX_WorkItems_ProjectId_AssigneeId");
     }
 }

@@ -43,6 +43,8 @@ public partial class WorkItemFlowTests(AuthWebApplicationFactory factory)
         var firstId = first.GetProperty("id").GetGuid();
         Assert.Equal(organizationId, first.GetProperty("organizationId").GetGuid());
         Assert.Equal(owner.UserId, first.GetProperty("reporterId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("assigneeId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("assigneeEmail").ValueKind);
         Assert.Equal(owner.Email, first.GetProperty("reporterEmail").GetString());
         Assert.Equal(1, first.GetProperty("number").GetInt64());
         Assert.Equal("CORE-1", first.GetProperty("key").GetString());
@@ -304,14 +306,18 @@ public partial class WorkItemFlowTests(AuthWebApplicationFactory factory)
                 new { userId, role })).StatusCode);
     }
 
-    private async Task AddOrganizationMemberAsync(Guid organizationId, Guid userId, Guid addedBy)
+    private async Task AddOrganizationMemberAsync(
+        Guid organizationId,
+        Guid userId,
+        Guid addedBy,
+        OrganizationRole role = OrganizationRole.Member)
     {
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<SecureFlowDbContext>();
         dbContext.OrganizationMembers.Add(OrganizationMember.CreateFromInvitation(
             organizationId,
             userId,
-            OrganizationRole.Member,
+            role,
             DateTimeOffset.UtcNow,
             addedBy));
         await dbContext.SaveChangesAsync();

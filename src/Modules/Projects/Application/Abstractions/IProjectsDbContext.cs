@@ -13,6 +13,8 @@ public interface IProjectsDbContext
 
     DatabaseFacade Database { get; }
 
+    Task<bool> LockProjectAsync(Guid projectId, CancellationToken cancellationToken);
+
     Task<PermissionRole?> GetActiveOrganizationRoleAsync(
         Guid organizationId,
         Guid userId,

@@ -19,6 +19,16 @@ public sealed record UpdateWorkItemRequest(
     string Priority,
     DateOnly? DueDate);
 
+public sealed record AssignWorkItemRequest(Guid AssigneeId);
+
+public sealed class AssignWorkItemRequestValidator : AbstractValidator<AssignWorkItemRequest>
+{
+    public AssignWorkItemRequestValidator()
+    {
+        RuleFor(request => request.AssigneeId).NotEmpty();
+    }
+}
+
 public sealed class CreateWorkItemRequestValidator : AbstractValidator<CreateWorkItemRequest>
 {
     public CreateWorkItemRequestValidator(IClock clock)
@@ -92,6 +102,8 @@ public sealed record WorkItemResponse(
     string Priority,
     Guid ReporterId,
     string ReporterEmail,
+    Guid? AssigneeId,
+    string? AssigneeEmail,
     DateOnly? DueDate,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
@@ -113,6 +125,8 @@ public sealed record WorkItemResponse(
             workItem.Priority.ToString().ToUpperInvariant(),
             workItem.ReporterId,
             workItem.ReporterEmail,
+            workItem.AssigneeId,
+            workItem.AssigneeEmail,
             workItem.DueDate,
             workItem.CreatedAt,
             workItem.UpdatedAt,
