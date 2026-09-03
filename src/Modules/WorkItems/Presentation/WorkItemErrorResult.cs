@@ -10,9 +10,10 @@ internal static class WorkItemErrorResult
     {
         var statusCode = error.Code switch
         {
-            "WorkItems.NotFound" => StatusCodes.Status404NotFound,
+            "WorkItems.NotFound" or "Labels.NotFound" => StatusCodes.Status404NotFound,
             "WorkItems.Forbidden" => StatusCodes.Status403Forbidden,
-            "WorkItems.ProjectArchived"
+            "Labels.DuplicateName"
+                or "WorkItems.ProjectArchived"
                 or "WorkItems.Archived"
                 or "WorkItems.NumberConflict"
                 or "WorkItems.NumberExhausted" => StatusCodes.Status409Conflict,

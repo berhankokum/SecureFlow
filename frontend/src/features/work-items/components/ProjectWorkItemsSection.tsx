@@ -19,7 +19,12 @@ export function ProjectWorkItemsSection({ project }: { project: ProjectDetails }
     {workItemsQuery.isError ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">WorkItems yüklenemedi.</p> : null}
     {workItemsQuery.data?.length === 0 ? <div className="mt-4 rounded-lg border border-dashed border-slate-300 p-7 text-center text-sm text-slate-600">Henüz WorkItem yok.</div> : null}
     <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-      {workItemsQuery.data?.map(workItem => <Link key={workItem.id} to={`../../work-items/${workItem.key}`} relative="path" className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50"><div><div className="flex items-center gap-2"><span className="text-xs font-semibold text-slate-500">{workItem.key}</span><span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{workItem.type}</span>{workItem.archivedAt ? <span className="rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-600">Archived</span> : null}</div><p className="mt-1 font-medium text-slate-900">{workItem.title}</p></div><div className="text-right"><p className="text-xs font-semibold text-slate-600">{workItem.priority}</p><p className="mt-1 text-xs text-slate-500">{workItem.dueDate ? `Due ${workItem.dueDate}` : "Due date yok"}</p></div></Link>)}
+      {workItemsQuery.data?.map(workItem => <Link key={workItem.id} to={`../../work-items/${workItem.key}`} relative="path" className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50">
+        <div><div className="flex items-center gap-2"><span className="text-xs font-semibold text-slate-500">{workItem.key}</span><span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{workItem.type}</span>{workItem.archivedAt ? <span className="rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-600">Archived</span> : null}</div><p className="mt-1 font-medium text-slate-900">{workItem.title}</p>
+          <div className="mt-2 flex flex-wrap gap-1">{workItem.labels.map(label => <span key={label.id} className="break-all rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-800">{label.name}</span>)}</div>
+        </div>
+        <div className="text-right"><p className="text-xs font-semibold text-slate-600">{workItem.priority}</p><p className="mt-1 text-xs text-slate-500">{workItem.dueDate ? `Due ${workItem.dueDate}` : "Due date yok"}</p></div>
+      </Link>)}
     </div>
   </section>;
 }

@@ -16,6 +16,10 @@ public interface IWorkItemsDbContext
 {
     DbSet<WorkItem> WorkItems { get; }
 
+    DbSet<Label> Labels { get; }
+
+    DbSet<WorkItemLabel> WorkItemLabels { get; }
+
     DatabaseFacade Database { get; }
 
     Task<bool> LockProjectAsync(Guid projectId, CancellationToken cancellationToken);

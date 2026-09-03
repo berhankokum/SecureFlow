@@ -40,6 +40,10 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
 
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
+    public DbSet<Label> Labels => Set<Label>();
+
+    public DbSet<WorkItemLabel> WorkItemLabels => Set<WorkItemLabel>();
+
     public async Task<PermissionRole?> GetActiveOrganizationRoleAsync(
         Guid organizationId,
         Guid userId,
@@ -227,6 +231,21 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(workItem => workItem.ReporterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Label>()
+            .HasOne<Project>()
+            .WithMany()
+            .HasForeignKey(label => new { label.ProjectId, label.OrganizationId })
+            .HasPrincipalKey(project => new { project.Id, project.OrganizationId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Label>()
+            .HasOne<ApplicationUser>().WithMany().HasForeignKey(label => label.CreatedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WorkItemLabel>()
+            .HasOne<ApplicationUser>().WithMany().HasForeignKey(assignment => assignment.AssignedBy)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<TeamMember>()

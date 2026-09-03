@@ -14,7 +14,7 @@ using SecureFlow.Modules.WorkItems.Domain;
 namespace SecureFlow.IntegrationTests;
 
 [Collection(IntegrationTestCollection.Name)]
-public class WorkItemFlowTests(AuthWebApplicationFactory factory)
+public partial class WorkItemFlowTests(AuthWebApplicationFactory factory)
 {
     private sealed record AuthenticatedUser(HttpClient Client, Guid UserId, string Email);
 

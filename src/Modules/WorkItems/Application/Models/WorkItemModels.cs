@@ -19,6 +19,7 @@ public sealed record WorkItemSummary(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     DateTimeOffset? ArchivedAt,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    IReadOnlyList<WorkItemLabelSummary> Labels);
 
 public sealed record WorkItemScope(Guid ProjectId, Guid OrganizationId);

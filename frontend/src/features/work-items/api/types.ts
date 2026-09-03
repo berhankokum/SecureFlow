@@ -1,4 +1,5 @@
 import type { Permission } from "@/features/authorization/permissions";
+import type { WorkItemLabel } from "@/features/labels/api/labelApi";
 
 export type WorkItemType = "TASK" | "BUG" | "STORY";
 export type WorkItemPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -21,6 +22,7 @@ export interface WorkItem {
   updatedAt: string;
   archivedAt: string | null;
   permissions: Permission[];
+  labels: WorkItemLabel[];
 }
 
 export interface WorkItemPayload {
