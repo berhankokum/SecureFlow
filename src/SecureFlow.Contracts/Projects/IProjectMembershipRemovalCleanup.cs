@@ -10,5 +10,6 @@ public interface IProjectMembershipRemovalCleanup
         Guid organizationId,
         Guid projectId,
         Guid userId,
+        Guid actorId,
         CancellationToken cancellationToken = default);
 }

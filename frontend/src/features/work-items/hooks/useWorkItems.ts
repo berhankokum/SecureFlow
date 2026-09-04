@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { activityKeys } from "@/features/comments/hooks/useCollaboration";
 import { workItemApi } from "../api/workItemApi";
 import type { WorkItem, WorkItemPayload, WorkflowState } from "../api/types";
 
@@ -48,6 +49,7 @@ function useInvalidateWorkItem(projectId: string, workItemId: string) {
   return async () => Promise.all([
     queryClient.invalidateQueries({ queryKey: workItemKeys.all(projectId) }),
     queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) }),
+    queryClient.invalidateQueries({ queryKey: activityKeys.all(workItemId) }),
   ]);
 }
 
@@ -133,6 +135,7 @@ export function useTransitionWorkItem(projectId: string) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: workItemKeys.all(projectId) }),
         queryClient.invalidateQueries({ queryKey: workItemKeys.detail(workItemId) }),
+        queryClient.invalidateQueries({ queryKey: activityKeys.all(workItemId) }),
       ]);
     },
   });

@@ -21,8 +21,13 @@ public sealed class ChangeMemberRoleHandler(IOrganizationsDbContext dbContext)
         CancellationToken cancellationToken = default)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
+
+        if (!await dbContext.LockOrganizationAsync(command.OrganizationId, cancellationToken))
+        {
+            return Result.Failure(OrganizationErrors.NotFound);
+        }
 
         var actor = await dbContext.OrganizationMembers.SingleOrDefaultAsync(member =>
             member.OrganizationId == command.OrganizationId

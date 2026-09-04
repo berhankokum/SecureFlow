@@ -19,6 +19,8 @@ const project = {
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/v1/projects/project-1/labels", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("**/api/v1/work-items/workitem-1/comments", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("**/api/v1/work-items/workitem-1/activity", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await page.route("**/api/v1/antiforgery/token", route => route.fulfill({ status: 204, headers: { "set-cookie": csrfCookie } }));
   await page.route("**/api/v1/me", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "owner", email: "owner@example.com", emailConfirmed: true }) }));
   await page.route("**/api/v1/organizations", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([organization]) }));

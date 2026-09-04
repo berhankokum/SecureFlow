@@ -97,13 +97,18 @@ public sealed class ProjectMembersController(
         Guid userId,
         CancellationToken cancellationToken)
     {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
         if (await AuthorizeAsync(projectId, Permissions.ProjectUpdate, cancellationToken)
             is { } authorizationError)
         {
             return authorizationError;
         }
 
-        var result = await removeHandler.HandleAsync(projectId, userId, cancellationToken);
+        var result = await removeHandler.HandleAsync(projectId, userId, currentUserId, cancellationToken);
         return result.IsSuccess ? NoContent() : ProjectErrorResult.Map(this, result.Error);
     }
 

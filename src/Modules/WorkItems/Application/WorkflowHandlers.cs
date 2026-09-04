@@ -1,6 +1,7 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.Activity;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Application.Models;
 using SecureFlow.SharedKernel;
@@ -17,7 +18,10 @@ public static class WorkflowErrors
         "Geçersiz workflow transition.");
 }
 
-public sealed class WorkflowHandlers(IWorkItemsDbContext dbContext, IClock clock)
+public sealed class WorkflowHandlers(
+    IWorkItemsDbContext dbContext,
+    IActivityWriter activityWriter,
+    IClock clock)
 {
     public async Task<Result<WorkflowSummary>> GetAsync(
         Guid projectId,
@@ -146,7 +150,30 @@ public sealed class WorkflowHandlers(IWorkItemsDbContext dbContext, IClock clock
             return Result.Failure(WorkItemErrors.Forbidden);
         }
 
-        workItem.Transition(transition, clock.UtcNow);
+        var states = await dbContext.WorkflowStates
+            .AsNoTracking()
+            .Where(state => state.Id == transition.FromStateId || state.Id == transition.ToStateId)
+            .ToDictionaryAsync(state => state.Id, state => state.Name, cancellationToken);
+        if (!states.TryGetValue(transition.FromStateId, out var fromState)
+            || !states.TryGetValue(transition.ToStateId, out var toState))
+        {
+            return Result.Failure(WorkflowErrors.MissingConfiguration);
+        }
+
+        var now = clock.UtcNow;
+        workItem.Transition(transition, now);
+        activityWriter.Add(new ActivityWriteRequest(
+            workItem.OrganizationId,
+            workItem.ProjectId,
+            workItem.Id,
+            currentUserId,
+            ActivityTypes.WorkItemTransitioned,
+            new Dictionary<string, string?>
+            {
+                ["fromState"] = fromState,
+                ["toState"] = toState,
+            },
+            now));
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Result.Success();

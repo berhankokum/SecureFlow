@@ -230,6 +230,14 @@ public sealed class ArchiveProjectHandler(IProjectsDbContext dbContext, IClock c
 {
     public async Task<Result> HandleAsync(Guid projectId, CancellationToken cancellationToken)
     {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted,
+            cancellationToken);
+        if (!await dbContext.LockProjectAsync(projectId, cancellationToken))
+        {
+            return Result.Failure(ProjectErrors.NotFound);
+        }
+
         var project = await dbContext.Projects.SingleOrDefaultAsync(
             item => item.Id == projectId,
             cancellationToken);
@@ -240,6 +248,7 @@ public sealed class ArchiveProjectHandler(IProjectsDbContext dbContext, IClock c
 
         project.Archive(clock.UtcNow);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return Result.Success();
     }
 }
@@ -359,7 +368,11 @@ public sealed class RemoveProjectMemberHandler(
     IProjectsDbContext dbContext,
     IEnumerable<IProjectMembershipRemovalCleanup> removalCleanups)
 {
-    public async Task<Result> HandleAsync(Guid projectId, Guid userId, CancellationToken cancellationToken)
+    public async Task<Result> HandleAsync(
+        Guid projectId,
+        Guid userId,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(
             IsolationLevel.Serializable,
@@ -399,6 +412,7 @@ public sealed class RemoveProjectMemberHandler(
                     project.OrganizationId,
                     project.Id,
                     userId,
+                    currentUserId,
                     cancellationToken);
             }
         }

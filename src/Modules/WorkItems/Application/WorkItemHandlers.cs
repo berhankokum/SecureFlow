@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Identity;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Application.Models;
@@ -89,8 +90,12 @@ internal static class WorkItemModelMapper
             join label in dbContext.Labels.AsNoTracking() on assignment.LabelId equals label.Id
             where label.ProjectId == projectId && (workItemId == null || assignment.WorkItemId == workItemId)
             orderby label.Name
-            select new { assignment.WorkItemId, Label = new WorkItemLabelSummary(
-                label.Id, label.Name, assignment.AssignedBy, assignment.AssignedAt) })
+            select new
+            {
+                assignment.WorkItemId,
+                Label = new WorkItemLabelSummary(
+                    label.Id, label.Name, assignment.AssignedBy, assignment.AssignedAt)
+            })
             .ToArrayAsync(cancellationToken);
         return labels.ToLookup(item => item.WorkItemId, item => item.Label);
     }
@@ -115,6 +120,7 @@ public sealed class FindWorkItemScopeHandler(IWorkItemsDbContext dbContext)
 public sealed class CreateWorkItemHandler(
     IWorkItemsDbContext dbContext,
     IUserDirectory userDirectory,
+    IActivityWriter activityWriter,
     IClock clock)
 {
     public async Task<Result<WorkItemSummary>> HandleAsync(
@@ -192,6 +198,17 @@ public sealed class CreateWorkItemHandler(
             DateOnly.FromDateTime(now.UtcDateTime),
             now);
         dbContext.WorkItems.Add(workItem);
+        activityWriter.Add(new ActivityWriteRequest(
+            workItem.OrganizationId,
+            workItem.ProjectId,
+            workItem.Id,
+            command.ReporterId,
+            ActivityTypes.WorkItemCreated,
+            new Dictionary<string, string?>
+            {
+                ["workItemKey"] = $"{project.ProjectKey}-{workItem.Number}",
+            },
+            now));
 
         try
         {

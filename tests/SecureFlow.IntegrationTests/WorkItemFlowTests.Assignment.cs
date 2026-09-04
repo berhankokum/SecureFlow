@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SecureFlow.Api.Persistence;
+using SecureFlow.Contracts.Activity;
 using SecureFlow.Modules.Organizations.Domain;
 using SecureFlow.Modules.WorkItems.Domain;
 
@@ -205,6 +206,17 @@ public partial class WorkItemFlowTests
             (await db.WorkItems.FindAsync(archivedOrganizationItem))!.AssigneeId);
         Assert.Equal(organizationAdmin.UserId,
             (await db.WorkItems.FindAsync(organizationAdminItem))!.AssigneeId);
+        Assert.True(await db.ActivityEvents.AnyAsync(activity =>
+            activity.WorkItemId == projectCleanupItem
+            && activity.ActorId == owner.UserId
+            && activity.Type == ActivityTypes.WorkItemUnassigned));
+        Assert.True(await db.ActivityEvents.AnyAsync(activity =>
+            activity.WorkItemId == activeOrganizationItem
+            && activity.ActorId == owner.UserId
+            && activity.Type == ActivityTypes.WorkItemUnassigned));
+        Assert.False(await db.ActivityEvents.AnyAsync(activity =>
+            activity.WorkItemId == archivedOrganizationItem
+            && activity.Type == ActivityTypes.WorkItemUnassigned));
     }
 
     [Fact]
@@ -223,8 +235,12 @@ public partial class WorkItemFlowTests
         Assert.Equal(HttpStatusCode.NoContent, (await owner.Client.PatchAsJsonAsync(
             $"/api/v1/work-items/{itemId}", new
             {
-                type = "TASK", title = "Core only", description = "", priority = "LOW",
-                dueDate = (DateOnly?)null, assigneeId = target.UserId,
+                type = "TASK",
+                title = "Core only",
+                description = "",
+                priority = "LOW",
+                dueDate = (DateOnly?)null,
+                assigneeId = target.UserId,
             })).StatusCode);
         Assert.Null((await owner.Client.GetFromJsonAsync<JsonElement>($"/api/v1/work-items/{itemId}"))
             .GetProperty("assigneeId").GetString());

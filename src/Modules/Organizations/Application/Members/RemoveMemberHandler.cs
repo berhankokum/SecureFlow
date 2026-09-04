@@ -24,8 +24,15 @@ public sealed class RemoveMemberHandler(
         CancellationToken cancellationToken = default)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
+
+        // Organization row serializes last-OWNER decisions. READ COMMITTED then lets
+        // cleanup queries observe an assignment that committed while membership lock was awaited.
+        if (!await dbContext.LockOrganizationAsync(command.OrganizationId, cancellationToken))
+        {
+            return Result.Failure(OrganizationErrors.NotFound);
+        }
 
         var actor = await dbContext.OrganizationMembers.SingleOrDefaultAsync(member =>
             member.OrganizationId == command.OrganizationId
@@ -87,6 +94,7 @@ public sealed class RemoveMemberHandler(
             await cleanup.RemoveActiveRelationshipsAsync(
                 command.OrganizationId,
                 command.TargetUserId,
+                command.CurrentUserId,
                 cancellationToken);
         }
 

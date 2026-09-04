@@ -11,6 +11,8 @@ using SecureFlow.Modules.Projects.Application.Authorization;
 using SecureFlow.Modules.Projects.Domain;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Domain;
+using SecureFlow.Modules.Collaboration.Application.Abstractions;
+using SecureFlow.Modules.Collaboration.Domain;
 
 namespace SecureFlow.Api.Persistence;
 
@@ -22,7 +24,7 @@ namespace SecureFlow.Api.Persistence;
 /// </summary>
 public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options)
     : IdentityUserContext<ApplicationUser, Guid>(options), IOrganizationsDbContext, ITeamsDbContext,
-        IProjectsDbContext, IWorkItemsDbContext
+        IProjectsDbContext, IWorkItemsDbContext, ICollaborationDbContext
 {
     public DbSet<Organization> Organizations => Set<Organization>();
 
@@ -49,6 +51,10 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
     public DbSet<WorkflowState> WorkflowStates => Set<WorkflowState>();
 
     public DbSet<WorkflowTransition> WorkflowTransitions => Set<WorkflowTransition>();
+
+    public DbSet<Comment> Comments => Set<Comment>();
+
+    public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
 
     public async Task<PermissionRole?> GetActiveOrganizationRoleAsync(
         Guid organizationId,
@@ -114,6 +120,16 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
                 $"""SELECT "Id" AS "Value" FROM "OrganizationMembers" WHERE "OrganizationId" = {organizationId} AND "UserId" = {userId} AND "RemovedAt" IS NULL FOR UPDATE""")
             .SingleOrDefaultAsync(cancellationToken);
         return lockedMembershipId != Guid.Empty;
+    }
+
+    public async Task<bool> LockOrganizationAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken)
+    {
+        var lockedOrganizationId = await Database.SqlQuery<Guid>(
+                $"""SELECT "Id" AS "Value" FROM "Organizations" WHERE "Id" = {organizationId} FOR UPDATE""")
+            .SingleOrDefaultAsync(cancellationToken);
+        return lockedOrganizationId != Guid.Empty;
     }
 
     public Task<Guid?> FindProjectOrganizationIdAsync(
@@ -197,6 +213,81 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
                 cancellationToken);
     }
 
+    public Task<CollaborationResourceScope?> FindWorkItemScopeAsync(
+        Guid workItemId,
+        CancellationToken cancellationToken) =>
+        WorkItems
+            .AsNoTracking()
+            .Where(workItem => workItem.Id == workItemId)
+            .Select(workItem => new CollaborationResourceScope(
+                workItem.Id,
+                workItem.ProjectId,
+                workItem.OrganizationId))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<CollaborationAccessContext?> GetCollaborationAccessAsync(
+        Guid workItemId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var resource = await (
+            from workItem in WorkItems.AsNoTracking()
+            join project in Projects.AsNoTracking() on workItem.ProjectId equals project.Id
+            where workItem.Id == workItemId && workItem.OrganizationId == project.OrganizationId
+            select new
+            {
+                WorkItemId = workItem.Id,
+                workItem.ProjectId,
+                workItem.OrganizationId,
+                IsWorkItemArchived = workItem.ArchivedAt != null,
+                IsProjectArchived = project.ArchivedAt != null,
+            }).SingleOrDefaultAsync(cancellationToken);
+        if (resource is null)
+        {
+            return null;
+        }
+
+        var organizationRole = await GetActiveOrganizationRoleAsync(
+            resource.OrganizationId,
+            userId,
+            cancellationToken);
+        if (organizationRole is null)
+        {
+            return new CollaborationAccessContext(
+                resource.WorkItemId,
+                resource.ProjectId,
+                resource.OrganizationId,
+                resource.IsWorkItemArchived,
+                resource.IsProjectArchived,
+                false,
+                false,
+                []);
+        }
+
+        var projectRole = await ProjectMembers
+            .AsNoTracking()
+            .Where(member => member.ProjectId == resource.ProjectId && member.UserId == userId)
+            .Select(member => (ProjectRole?)member.Role)
+            .SingleOrDefaultAsync(cancellationToken);
+        var hasProjectAccess = organizationRole is PermissionRole.Owner or PermissionRole.Admin
+            || projectRole is not null;
+        var permissions = hasProjectAccess
+            ? ProjectAuthorizationEvaluator.GetPermissions(organizationRole.Value, projectRole)
+            : [];
+        var canModerate = organizationRole is PermissionRole.Owner or PermissionRole.Admin
+            || projectRole is ProjectRole.Manager;
+
+        return new CollaborationAccessContext(
+            resource.WorkItemId,
+            resource.ProjectId,
+            resource.OrganizationId,
+            resource.IsWorkItemArchived,
+            resource.IsProjectArchived,
+            hasProjectAccess,
+            canModerate,
+            permissions);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -205,6 +296,7 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Team).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Project).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(WorkItem).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Comment).Assembly);
 
         // Cross-module user references composition root'ta kurulur; domain modülleri
         // birbirlerinin assembly'lerine bağımlı hale getirilmez.
@@ -273,6 +365,10 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .HasPrincipalKey(project => new { project.Id, project.OrganizationId })
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<WorkItem>()
+            .HasAlternateKey(workItem => new { workItem.Id, workItem.OrganizationId })
+            .HasName("AK_WorkItems_Id_OrganizationId");
+
         modelBuilder.Entity<Workflow>()
             .HasOne<Organization>()
             .WithMany()
@@ -304,6 +400,39 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
 
         modelBuilder.Entity<WorkItemLabel>()
             .HasOne<ApplicationUser>().WithMany().HasForeignKey(assignment => assignment.AssignedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Comment>()
+            .HasOne<WorkItem>()
+            .WithMany()
+            .HasForeignKey(comment => new { comment.WorkItemId, comment.OrganizationId })
+            .HasPrincipalKey(workItem => new { WorkItemId = workItem.Id, workItem.OrganizationId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Comment>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(comment => comment.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ActivityEvent>()
+            .HasOne<Project>()
+            .WithMany()
+            .HasForeignKey(activity => new { activity.ProjectId, activity.OrganizationId })
+            .HasPrincipalKey(project => new { project.Id, project.OrganizationId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ActivityEvent>()
+            .HasOne<WorkItem>()
+            .WithMany()
+            .HasForeignKey(activity => new { activity.WorkItemId, activity.OrganizationId })
+            .HasPrincipalKey(workItem => new { workItem.Id, workItem.OrganizationId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ActivityEvent>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(activity => activity.ActorId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<TeamMember>()

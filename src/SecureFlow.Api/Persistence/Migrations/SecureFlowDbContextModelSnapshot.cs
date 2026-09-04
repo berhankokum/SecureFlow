@@ -86,6 +86,101 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.Collaboration.Domain.ActivityEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Metadata")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("ProjectId", "CreatedAt")
+                        .HasDatabaseName("IX_ActivityEvents_ProjectId_CreatedAt");
+
+                    b.HasIndex("ProjectId", "OrganizationId");
+
+                    b.HasIndex("WorkItemId", "CreatedAt")
+                        .HasDatabaseName("IX_ActivityEvents_WorkItemId_CreatedAt");
+
+                    b.HasIndex("WorkItemId", "OrganizationId");
+
+                    b.ToTable("ActivityEvents", (string)null);
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Collaboration.Domain.Comment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("OrganizationId", "Id")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Comments_OrganizationId_Id");
+
+                    b.HasIndex("WorkItemId", "CreatedAt")
+                        .HasDatabaseName("IX_Comments_WorkItemId_CreatedAt");
+
+                    b.HasIndex("WorkItemId", "OrganizationId");
+
+                    b.ToTable("Comments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Comments_Content_NotBlank", "length(btrim(\"Content\")) > 0");
+                        });
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Identity.Domain.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -534,6 +629,9 @@ namespace SecureFlow.Api.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("Id", "OrganizationId")
+                        .HasName("AK_WorkItems_Id_OrganizationId");
+
                     b.HasIndex("AssigneeId");
 
                     b.HasIndex("ProjectId")
@@ -714,6 +812,43 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Collaboration.Domain.ActivityEvent", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ActorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.Projects.Domain.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId", "OrganizationId")
+                        .HasPrincipalKey("Id", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.WorkItem", null)
+                        .WithMany()
+                        .HasForeignKey("WorkItemId", "OrganizationId")
+                        .HasPrincipalKey("Id", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Collaboration.Domain.Comment", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.WorkItem", null)
+                        .WithMany()
+                        .HasForeignKey("WorkItemId", "OrganizationId")
+                        .HasPrincipalKey("Id", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
