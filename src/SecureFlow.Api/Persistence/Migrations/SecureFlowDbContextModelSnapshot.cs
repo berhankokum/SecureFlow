@@ -486,6 +486,9 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.Property<DateTimeOffset?>("ArchivedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("AssigneeId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -528,10 +531,15 @@ namespace SecureFlow.Api.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssigneeId");
+
                     b.HasIndex("ProjectId")
                         .HasDatabaseName("IX_WorkItems_ProjectId");
 
                     b.HasIndex("ReporterId");
+
+                    b.HasIndex("ProjectId", "AssigneeId")
+                        .HasDatabaseName("IX_WorkItems_ProjectId_AssigneeId");
 
                     b.HasIndex("ProjectId", "DueDate")
                         .HasDatabaseName("IX_WorkItems_ProjectId_DueDate");
@@ -725,6 +733,11 @@ namespace SecureFlow.Api.Persistence.Migrations
 
             modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.WorkItem", b =>
                 {
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AssigneeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("ReporterId")

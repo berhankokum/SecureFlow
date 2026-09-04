@@ -18,7 +18,9 @@ public sealed class WorkItemsController(
     GetWorkItemHandler getHandler,
     UpdateWorkItemHandler updateHandler,
     ArchiveWorkItemHandler archiveHandler,
-    IValidator<UpdateWorkItemRequest> updateValidator) : ControllerBase
+    AssignmentHandler assignmentHandler,
+    IValidator<UpdateWorkItemRequest> updateValidator,
+    IValidator<AssignWorkItemRequest> assignValidator) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(Guid workItemId, CancellationToken cancellationToken)
@@ -92,6 +94,83 @@ public sealed class WorkItemsController(
         }
 
         var result = await archiveHandler.HandleAsync(workItemId, currentUserId, cancellationToken);
+        return result.IsSuccess ? NoContent() : WorkItemErrorResult.Map(this, result.Error);
+    }
+
+    [HttpPost("assign")]
+    [ValidateAntiforgery]
+    public async Task<IActionResult> Assign(
+        Guid workItemId,
+        AssignWorkItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        if (await AuthorizeAsync(workItemId, Permissions.WorkItemAssign, cancellationToken)
+            is { } authorizationError)
+        {
+            return authorizationError;
+        }
+
+        if (await this.ValidateAsync(assignValidator, request) is { } validationError)
+        {
+            return validationError;
+        }
+
+        var result = await assignmentHandler.AssignOtherAsync(
+            workItemId,
+            request.AssigneeId,
+            currentUserId,
+            cancellationToken);
+        return result.IsSuccess ? NoContent() : WorkItemErrorResult.Map(this, result.Error);
+    }
+
+    [HttpPost("self-assign")]
+    [ValidateAntiforgery]
+    public async Task<IActionResult> SelfAssign(Guid workItemId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        if (await AuthorizeAsync(workItemId, Permissions.WorkItemSelfAssign, cancellationToken)
+            is { } authorizationError)
+        {
+            return authorizationError;
+        }
+
+        var result = await assignmentHandler.SelfAssignAsync(
+            workItemId,
+            currentUserId,
+            cancellationToken);
+        return result.IsSuccess ? NoContent() : WorkItemErrorResult.Map(this, result.Error);
+    }
+
+    [HttpDelete("assignment")]
+    [ValidateAntiforgery]
+    public async Task<IActionResult> Unassign(Guid workItemId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        // Permission is assignment-state dependent (self vs. another user), so the
+        // controller verifies Project access and the locked handler enforces the exact permission.
+        if (await AuthorizeAsync(workItemId, permission: null, cancellationToken)
+            is { } authorizationError)
+        {
+            return authorizationError;
+        }
+
+        var result = await assignmentHandler.UnassignAsync(
+            workItemId,
+            currentUserId,
+            cancellationToken);
         return result.IsSuccess ? NoContent() : WorkItemErrorResult.Map(this, result.Error);
     }
 

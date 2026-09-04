@@ -91,6 +91,17 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         return lockedProjectId != Guid.Empty;
     }
 
+    public async Task<bool> LockOrganizationMemberAsync(
+        Guid organizationId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var lockedMembershipId = await Database.SqlQuery<Guid>(
+                $"""SELECT "Id" AS "Value" FROM "OrganizationMembers" WHERE "OrganizationId" = {organizationId} AND "UserId" = {userId} AND "RemovedAt" IS NULL FOR UPDATE""")
+            .SingleOrDefaultAsync(cancellationToken);
+        return lockedMembershipId != Guid.Empty;
+    }
+
     public Task<Guid?> FindProjectOrganizationIdAsync(
         Guid projectId,
         CancellationToken cancellationToken) =>
@@ -149,6 +160,27 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             project.IsArchived,
             hasProjectAccess,
             permissions);
+    }
+
+    public async Task<bool> CanUserAccessProjectAsync(
+        Guid projectId,
+        Guid organizationId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var organizationRole = await GetActiveOrganizationRoleAsync(
+            organizationId,
+            userId,
+            cancellationToken);
+        if (organizationRole is PermissionRole.Owner or PermissionRole.Admin)
+        {
+            return true;
+        }
+
+        return organizationRole is PermissionRole.Member
+            && await ProjectMembers.AsNoTracking().AnyAsync(
+                member => member.ProjectId == projectId && member.UserId == userId,
+                cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -231,6 +263,12 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(workItem => workItem.ReporterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WorkItem>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(workItem => workItem.AssigneeId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Label>()

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Identity;
+using SecureFlow.Contracts.Projects;
 using SecureFlow.Modules.Projects.Application.Abstractions;
 using SecureFlow.Modules.Projects.Application.Authorization;
 using SecureFlow.Modules.Projects.Application.Models;
@@ -354,10 +355,20 @@ public sealed class ChangeProjectMemberRoleHandler(IProjectsDbContext dbContext)
     }
 }
 
-public sealed class RemoveProjectMemberHandler(IProjectsDbContext dbContext)
+public sealed class RemoveProjectMemberHandler(
+    IProjectsDbContext dbContext,
+    IEnumerable<IProjectMembershipRemovalCleanup> removalCleanups)
 {
     public async Task<Result> HandleAsync(Guid projectId, Guid userId, CancellationToken cancellationToken)
     {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+        if (!await dbContext.LockProjectAsync(projectId, cancellationToken))
+        {
+            return Result.Failure(ProjectErrors.NotFound);
+        }
+
         var project = await dbContext.Projects
             .Include(item => item.Members)
             .SingleOrDefaultAsync(item => item.Id == projectId, cancellationToken);
@@ -376,7 +387,44 @@ public sealed class RemoveProjectMemberHandler(IProjectsDbContext dbContext)
             return Result.Failure(ProjectErrors.MemberNotFound);
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return Result.Success();
+        var organizationRole = await dbContext.GetActiveOrganizationRoleAsync(
+            project.OrganizationId,
+            userId,
+            cancellationToken);
+        if (organizationRole is not PermissionRole.Owner and not PermissionRole.Admin)
+        {
+            foreach (var cleanup in removalCleanups)
+            {
+                await cleanup.RemoveActiveRelationshipsAsync(
+                    project.OrganizationId,
+                    project.Id,
+                    userId,
+                    cancellationToken);
+            }
+        }
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result.Success();
+        }
+        catch (Exception exception) when (IsSerializationFailure(exception))
+        {
+            return Result.Failure(ProjectErrors.ConcurrentMembership);
+        }
+    }
+
+    private static bool IsSerializationFailure(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException { SqlState: PostgresErrorCodes.SerializationFailure })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

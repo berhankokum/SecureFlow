@@ -24,10 +24,21 @@ public interface IWorkItemsDbContext
 
     Task<bool> LockProjectAsync(Guid projectId, CancellationToken cancellationToken);
 
+    Task<bool> LockOrganizationMemberAsync(
+        Guid organizationId,
+        Guid userId,
+        CancellationToken cancellationToken);
+
     Task<Guid?> FindProjectOrganizationIdAsync(Guid projectId, CancellationToken cancellationToken);
 
     Task<WorkItemProjectContext?> GetWorkItemProjectContextAsync(
         Guid projectId,
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    Task<bool> CanUserAccessProjectAsync(
+        Guid projectId,
+        Guid organizationId,
         Guid userId,
         CancellationToken cancellationToken);
 

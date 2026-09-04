@@ -54,6 +54,8 @@ public sealed class WorkItem : AggregateRoot
 
     public Guid ReporterId { get; private set; }
 
+    public Guid? AssigneeId { get; private set; }
+
     public DateOnly? DueDate { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
@@ -115,6 +117,33 @@ public sealed class WorkItem : AggregateRoot
 
         ArchivedAt = archivedAt;
         UpdatedAt = archivedAt;
+    }
+
+    public bool Assign(Guid assigneeId, DateTimeOffset assignedAt)
+    {
+        EnsureMutable();
+        RequireId(assigneeId, nameof(assigneeId));
+        if (AssigneeId == assigneeId)
+        {
+            return false;
+        }
+
+        AssigneeId = assigneeId;
+        UpdatedAt = assignedAt;
+        return true;
+    }
+
+    public bool Unassign(DateTimeOffset unassignedAt)
+    {
+        EnsureMutable();
+        if (AssigneeId is null)
+        {
+            return false;
+        }
+
+        AssigneeId = null;
+        UpdatedAt = unassignedAt;
+        return true;
     }
 
     private static Guid RequireId(Guid value, string parameterName) =>

@@ -9,4 +9,10 @@ export const workItemApi = {
   update: (workItemId: string, payload: WorkItemPayload): Promise<void> =>
     apiClient.patch(`/work-items/${workItemId}`, payload),
   archive: (workItemId: string): Promise<void> => apiClient.post(`/work-items/${workItemId}/archive`),
+  assign: (workItemId: string, assigneeId: string): Promise<void> =>
+    apiClient.post(`/work-items/${workItemId}/assign`, { assigneeId }),
+  selfAssign: (workItemId: string): Promise<void> =>
+    apiClient.post(`/work-items/${workItemId}/self-assign`),
+  unassign: (workItemId: string): Promise<void> =>
+    apiClient.delete(`/work-items/${workItemId}/assignment`),
 };

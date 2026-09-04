@@ -34,6 +34,7 @@ internal static class WorkItemModelMapper
         WorkItem workItem,
         WorkItemProjectContext project,
         string reporterEmail,
+        string? assigneeEmail,
         IReadOnlyList<WorkItemLabelSummary>? labels = null) =>
         new(
             workItem.Id,
@@ -48,6 +49,8 @@ internal static class WorkItemModelMapper
             workItem.Priority,
             workItem.ReporterId,
             reporterEmail,
+            workItem.AssigneeId,
+            assigneeEmail,
             workItem.DueDate,
             workItem.CreatedAt,
             workItem.UpdatedAt,
@@ -154,7 +157,8 @@ public sealed class CreateWorkItemHandler(
             return Result.Success(WorkItemModelMapper.ToSummary(
                 workItem,
                 project,
-                reporter?.Email ?? "Bilinmeyen kullanıcı"));
+                reporter?.Email ?? "Bilinmeyen kullanıcı",
+                assigneeEmail: null));
         }
         catch (DbUpdateException exception) when (IsNumberConflict(exception))
         {
@@ -193,7 +197,10 @@ public sealed class ListWorkItemsHandler(IWorkItemsDbContext dbContext, IUserDir
             .ThenByDescending(workItem => workItem.Number)
             .ToArrayAsync(cancellationToken);
         var reporterEmails = await userDirectory.GetEmailsByUserIdsAsync(
-            workItems.Select(workItem => workItem.ReporterId).Distinct().ToArray(),
+            workItems.SelectMany(workItem => workItem.AssigneeId is { } assigneeId
+                    ? new[] { workItem.ReporterId, assigneeId }
+                    : new[] { workItem.ReporterId })
+                .Distinct().ToArray(),
             cancellationToken);
 
         var labels = await WorkItemModelMapper.LoadLabelsAsync(dbContext, projectId, null, cancellationToken);
@@ -202,6 +209,9 @@ public sealed class ListWorkItemsHandler(IWorkItemsDbContext dbContext, IUserDir
                 workItem,
                 project,
                 reporterEmails.GetValueOrDefault(workItem.ReporterId, "Bilinmeyen kullanıcı"),
+                workItem.AssigneeId is { } assigneeId
+                    ? reporterEmails.GetValueOrDefault(assigneeId, "Bilinmeyen kullanıcı")
+                    : null,
                 labels[workItem.Id].ToArray())).ToArray());
     }
 }
@@ -230,13 +240,20 @@ public sealed class GetWorkItemHandler(IWorkItemsDbContext dbContext, IUserDirec
             return Result.Failure<WorkItemSummary>(WorkItemErrors.NotFound);
         }
 
-        var reporter = await userDirectory.FindByIdAsync(workItem.ReporterId, cancellationToken);
+        var emails = await userDirectory.GetEmailsByUserIdsAsync(
+            workItem.AssigneeId is { } assigneeId
+                ? [workItem.ReporterId, assigneeId]
+                : [workItem.ReporterId],
+            cancellationToken);
         var labels = await WorkItemModelMapper.LoadLabelsAsync(
             dbContext, workItem.ProjectId, workItemId, cancellationToken);
         return Result.Success(WorkItemModelMapper.ToSummary(
             workItem,
             project,
-            reporter?.Email ?? "Bilinmeyen kullanıcı",
+            emails.GetValueOrDefault(workItem.ReporterId, "Bilinmeyen kullanıcı"),
+            workItem.AssigneeId is { } assignedUserId
+                ? emails.GetValueOrDefault(assignedUserId, "Bilinmeyen kullanıcı")
+                : null,
             labels[workItemId].ToArray()));
     }
 }

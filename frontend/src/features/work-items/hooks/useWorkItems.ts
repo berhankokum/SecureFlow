@@ -51,3 +51,21 @@ export function useArchiveWorkItem(projectId: string, workItemId: string) {
   const invalidate = useInvalidateWorkItem(projectId, workItemId);
   return useMutation({ mutationFn: () => workItemApi.archive(workItemId), onSuccess: invalidate });
 }
+
+export function useAssignWorkItem(projectId: string, workItemId: string) {
+  const invalidate = useInvalidateWorkItem(projectId, workItemId);
+  return useMutation({
+    mutationFn: (assigneeId: string) => workItemApi.assign(workItemId, assigneeId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSelfAssignWorkItem(projectId: string, workItemId: string) {
+  const invalidate = useInvalidateWorkItem(projectId, workItemId);
+  return useMutation({ mutationFn: () => workItemApi.selfAssign(workItemId), onSuccess: invalidate });
+}
+
+export function useUnassignWorkItem(projectId: string, workItemId: string) {
+  const invalidate = useInvalidateWorkItem(projectId, workItemId);
+  return useMutation({ mutationFn: () => workItemApi.unassign(workItemId), onSuccess: invalidate });
+}

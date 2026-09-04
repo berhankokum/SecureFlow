@@ -14,5 +14,10 @@ public interface IOrganizationsDbContext
 
     DatabaseFacade Database { get; }
 
+    Task<bool> LockOrganizationMemberAsync(
+        Guid organizationId,
+        Guid userId,
+        CancellationToken cancellationToken);
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
