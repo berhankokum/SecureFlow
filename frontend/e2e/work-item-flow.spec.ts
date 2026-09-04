@@ -34,7 +34,7 @@ test("manager creates, opens and edits a WorkItem", async ({ page }) => {
     if (route.request().method() === "POST") {
       csrfHeader = route.request().headers()["x-csrf-token"];
       const payload = route.request().postDataJSON();
-      const workItem = { id: "workitem-1", organizationId: organization.id, projectId: project.id, projectKey: "SF", number: 1, key: "SF-1", ...payload, reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: null, assigneeEmail: null, createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null, permissions: project.permissions, labels: [] };
+      const workItem = { id: "workitem-1", organizationId: organization.id, projectId: project.id, projectKey: "SF", number: 1, key: "SF-1", ...payload, workflowStateId: "state-backlog", workflowStateName: "BACKLOG", workflowStateCategory: "TODO", reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: null, assigneeEmail: null, createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null, permissions: project.permissions, labels: [] };
       workItems = [workItem];
       await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(workItem) });
       return;

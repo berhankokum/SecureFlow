@@ -529,6 +529,9 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("WorkflowStateId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssigneeId");
@@ -537,6 +540,8 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .HasDatabaseName("IX_WorkItems_ProjectId");
 
                     b.HasIndex("ReporterId");
+
+                    b.HasIndex("WorkflowStateId");
 
                     b.HasIndex("ProjectId", "AssigneeId")
                         .HasDatabaseName("IX_WorkItems_ProjectId_AssigneeId");
@@ -549,6 +554,9 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .HasDatabaseName("UX_WorkItems_ProjectId_Number");
 
                     b.HasIndex("ProjectId", "OrganizationId");
+
+                    b.HasIndex("ProjectId", "WorkflowStateId")
+                        .HasDatabaseName("IX_WorkItems_ProjectId_WorkflowStateId");
 
                     b.ToTable("WorkItems", null, t =>
                         {
@@ -582,6 +590,104 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .HasDatabaseName("IX_WorkItemLabels_LabelId_WorkItemId");
 
                     b.ToTable("WorkItemLabels", (string)null);
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.Workflow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Workflows_OrganizationId");
+
+                    b.ToTable("Workflows", (string)null);
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.WorkflowState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkflowId", "Id")
+                        .HasName("AK_WorkflowStates_WorkflowId_Id");
+
+                    b.HasIndex("WorkflowId", "Position")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkflowStates_WorkflowId_Position");
+
+                    b.ToTable("WorkflowStates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkflowStates_Category", "\"Category\" IN ('TODO', 'IN_PROGRESS', 'DONE')");
+
+                            t.HasCheckConstraint("CK_WorkflowStates_Position", "\"Position\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.WorkflowTransition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FromStateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RequiredPermission")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("ToStateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowId", "ToStateId");
+
+                    b.HasIndex("WorkflowId", "FromStateId", "ToStateId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkflowTransitions_WorkflowId_FromStateId_ToStateId");
+
+                    b.ToTable("WorkflowTransitions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkflowTransitions_DifferentStates", "\"FromStateId\" <> \"ToStateId\"");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -744,6 +850,12 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.WorkflowState", null)
+                        .WithMany()
+                        .HasForeignKey("WorkflowStateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("SecureFlow.Modules.Projects.Domain.Project", null)
                         .WithMany()
                         .HasForeignKey("ProjectId", "OrganizationId")
@@ -773,6 +885,47 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.Workflow", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.WorkflowState", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.Workflow", null)
+                        .WithMany("States")
+                        .HasForeignKey("WorkflowId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.WorkflowTransition", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.Workflow", null)
+                        .WithMany("Transitions")
+                        .HasForeignKey("WorkflowId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.WorkflowState", null)
+                        .WithMany()
+                        .HasForeignKey("WorkflowId", "FromStateId")
+                        .HasPrincipalKey("WorkflowId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.WorkflowState", null)
+                        .WithMany()
+                        .HasForeignKey("WorkflowId", "ToStateId")
+                        .HasPrincipalKey("WorkflowId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Organizations.Domain.Organization", b =>
                 {
                     b.Navigation("Members");
@@ -786,6 +939,13 @@ namespace SecureFlow.Api.Persistence.Migrations
             modelBuilder.Entity("SecureFlow.Modules.Teams.Domain.Team", b =>
                 {
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.WorkItems.Domain.Workflow", b =>
+                {
+                    b.Navigation("States");
+
+                    b.Navigation("Transitions");
                 });
 #pragma warning restore 612, 618
         }

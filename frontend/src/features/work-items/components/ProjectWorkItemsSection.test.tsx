@@ -25,7 +25,8 @@ vi.mock("../hooks/useWorkItems", () => ({
   useWorkItems: () => ({ data: [{
     id: "workitem-1", organizationId: "organization-1", projectId: "project-1",
     projectKey: "SF", number: 1, key: "SF-1", type: "BUG", title: "Tenant isolation",
-    description: null, priority: "CRITICAL", reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: "owner", assigneeEmail: "owner@example.com", dueDate: null,
+    description: null, priority: "CRITICAL", workflowStateId: "state-backlog", workflowStateName: "BACKLOG",
+    workflowStateCategory: "TODO", reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: "owner", assigneeEmail: "owner@example.com", dueDate: null,
     createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null,
     permissions: ["workitem.update"], labels: [{ id: "label-1", name: "Security", assignedBy: "owner", assignedAt: "2026-09-02T00:00:00Z" }],
   }], isLoading: false, isError: false }),

@@ -33,6 +33,11 @@ public sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasMaxLength(16)
             .IsRequired();
 
+        builder.HasOne<WorkflowState>()
+            .WithMany()
+            .HasForeignKey(workItem => workItem.WorkflowStateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(workItem => workItem.ProjectId)
             .HasDatabaseName("IX_WorkItems_ProjectId");
         builder.HasIndex(workItem => new { workItem.ProjectId, workItem.Number })
@@ -42,5 +47,7 @@ public sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasDatabaseName("IX_WorkItems_ProjectId_DueDate");
         builder.HasIndex(workItem => new { workItem.ProjectId, workItem.AssigneeId })
             .HasDatabaseName("IX_WorkItems_ProjectId_AssigneeId");
+        builder.HasIndex(workItem => new { workItem.ProjectId, workItem.WorkflowStateId })
+            .HasDatabaseName("IX_WorkItems_ProjectId_WorkflowStateId");
     }
 }

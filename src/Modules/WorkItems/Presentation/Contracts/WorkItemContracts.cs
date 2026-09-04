@@ -21,6 +21,16 @@ public sealed record UpdateWorkItemRequest(
 
 public sealed record AssignWorkItemRequest(Guid AssigneeId);
 
+public sealed record TransitionWorkItemRequest(Guid ToStateId);
+
+public sealed class TransitionWorkItemRequestValidator : AbstractValidator<TransitionWorkItemRequest>
+{
+    public TransitionWorkItemRequestValidator()
+    {
+        RuleFor(request => request.ToStateId).NotEmpty();
+    }
+}
+
 public sealed class AssignWorkItemRequestValidator : AbstractValidator<AssignWorkItemRequest>
 {
     public AssignWorkItemRequestValidator()
@@ -89,6 +99,37 @@ public static class WorkItemPriorityParser
     };
 }
 
+public sealed record WorkflowStateResponse(Guid Id, string Name, string Category, int Position);
+
+public sealed record WorkflowTransitionResponse(
+    Guid Id,
+    Guid FromStateId,
+    Guid ToStateId,
+    string? RequiredPermission);
+
+public sealed record WorkflowResponse(
+    Guid Id,
+    Guid OrganizationId,
+    string Name,
+    IReadOnlyList<WorkflowStateResponse> States,
+    IReadOnlyList<WorkflowTransitionResponse> Transitions)
+{
+    public static WorkflowResponse From(WorkflowSummary workflow) => new(
+        workflow.Id,
+        workflow.OrganizationId,
+        workflow.Name,
+        workflow.States.Select(state => new WorkflowStateResponse(
+            state.Id,
+            state.Name,
+            state.Category,
+            state.Position)).ToArray(),
+        workflow.Transitions.Select(transition => new WorkflowTransitionResponse(
+            transition.Id,
+            transition.FromStateId,
+            transition.ToStateId,
+            transition.RequiredPermission)).ToArray());
+}
+
 public sealed record WorkItemResponse(
     Guid Id,
     Guid OrganizationId,
@@ -100,6 +141,9 @@ public sealed record WorkItemResponse(
     string Title,
     string? Description,
     string Priority,
+    Guid WorkflowStateId,
+    string WorkflowStateName,
+    string WorkflowStateCategory,
     Guid ReporterId,
     string ReporterEmail,
     Guid? AssigneeId,
@@ -123,6 +167,9 @@ public sealed record WorkItemResponse(
             workItem.Title,
             workItem.Description,
             workItem.Priority.ToString().ToUpperInvariant(),
+            workItem.WorkflowStateId,
+            workItem.WorkflowStateName,
+            workItem.WorkflowStateCategory,
             workItem.ReporterId,
             workItem.ReporterEmail,
             workItem.AssigneeId,

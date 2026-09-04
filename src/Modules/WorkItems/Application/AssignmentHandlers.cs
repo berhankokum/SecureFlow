@@ -189,10 +189,11 @@ public sealed class WorkItemOrganizationMembershipRemovalCleanup(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        // FOR UPDATE forces a concurrent assignment version to become visible or
+        // raises a serializable conflict; a snapshot-only SELECT could miss it.
         var workItems = await dbContext.WorkItems
-            .Where(item => item.OrganizationId == organizationId
-                && item.AssigneeId == userId
-                && item.ArchivedAt == null)
+            .FromSqlInterpolated(
+                $"""SELECT * FROM "WorkItems" WHERE "OrganizationId" = {organizationId} AND "AssigneeId" = {userId} AND "ArchivedAt" IS NULL FOR UPDATE""")
             .ToArrayAsync(cancellationToken);
         foreach (var workItem in workItems)
         {

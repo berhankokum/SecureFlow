@@ -45,7 +45,7 @@ public class LabelTests
         var now = DateTimeOffset.UtcNow;
         var userId = Guid.NewGuid();
         var item = WorkItem.Create(Guid.NewGuid(), Guid.NewGuid(), 1, WorkItemType.Task, "Test", null,
-            WorkItemPriority.Low, userId, null, DateOnly.FromDateTime(now.UtcDateTime), now);
+            WorkItemPriority.Low, Guid.NewGuid(), userId, null, DateOnly.FromDateTime(now.UtcDateTime), now);
         var label = Label.Create(item.OrganizationId, item.ProjectId, "security", userId, now);
         var assignment = WorkItemLabel.Create(item, label, userId, now);
         Assert.Equal((item.Id, label.Id, userId, now),

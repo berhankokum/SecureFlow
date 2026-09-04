@@ -13,6 +13,9 @@ public sealed record WorkItemSummary(
     string Title,
     string? Description,
     WorkItemPriority Priority,
+    Guid WorkflowStateId,
+    string WorkflowStateName,
+    string WorkflowStateCategory,
     Guid ReporterId,
     string ReporterEmail,
     Guid? AssigneeId,
@@ -25,3 +28,18 @@ public sealed record WorkItemSummary(
     IReadOnlyList<WorkItemLabelSummary> Labels);
 
 public sealed record WorkItemScope(Guid ProjectId, Guid OrganizationId);
+
+public sealed record WorkflowStateSummary(Guid Id, string Name, string Category, int Position);
+
+public sealed record WorkflowTransitionSummary(
+    Guid Id,
+    Guid FromStateId,
+    Guid ToStateId,
+    string? RequiredPermission);
+
+public sealed record WorkflowSummary(
+    Guid Id,
+    Guid OrganizationId,
+    string Name,
+    IReadOnlyList<WorkflowStateSummary> States,
+    IReadOnlyList<WorkflowTransitionSummary> Transitions);

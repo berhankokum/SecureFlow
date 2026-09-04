@@ -25,12 +25,15 @@ public static class WorkItemsModule
         services.AddScoped<ArchiveWorkItemHandler>();
         services.AddScoped<LabelHandlers>();
         services.AddScoped<AssignmentHandler>();
+        services.AddScoped<WorkflowHandlers>();
+        services.AddScoped<IOrganizationCreationProvisioner, DefaultWorkflowProvisioner>();
         services.AddScoped<IOrganizationMembershipRemovalCleanup, WorkItemOrganizationMembershipRemovalCleanup>();
         services.AddScoped<IProjectMembershipRemovalCleanup, WorkItemProjectMembershipRemovalCleanup>();
         services.AddScoped<IValidator<LabelNameRequest>, LabelNameRequestValidator>();
         services.AddScoped<IValidator<CreateWorkItemRequest>, CreateWorkItemRequestValidator>();
         services.AddScoped<IValidator<UpdateWorkItemRequest>, UpdateWorkItemRequestValidator>();
         services.AddScoped<IValidator<AssignWorkItemRequest>, AssignWorkItemRequestValidator>();
+        services.AddScoped<IValidator<TransitionWorkItemRequest>, TransitionWorkItemRequestValidator>();
         services.TryAddSingleton<IClock, SystemClock>();
         return services;
     }

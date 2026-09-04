@@ -20,6 +20,7 @@ public class PlaywrightSuiteConfigurationTests
         Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "work-item-flow.spec.ts")));
         Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "label-flow.spec.ts")));
         Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "assignment-flow.spec.ts")));
+        Assert.True(File.Exists(Path.Combine(repositoryRoot, "frontend", "e2e", "workflow-kanban.spec.ts")));
     }
 
     private static string FindRepositoryRoot(

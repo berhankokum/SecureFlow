@@ -5,12 +5,14 @@ using SecureFlow.Modules.Organizations.Application.Models;
 using SecureFlow.Modules.Organizations.Application.Authorization;
 using SecureFlow.Modules.Organizations.Domain;
 using SecureFlow.SharedKernel;
+using SecureFlow.Contracts.Organizations;
 
 namespace SecureFlow.Modules.Organizations.Application.CreateOrganization;
 
 public sealed class CreateOrganizationHandler(
     IOrganizationsDbContext dbContext,
-    IClock clock)
+    IClock clock,
+    IEnumerable<IOrganizationCreationProvisioner> provisioners)
 {
     private static readonly Error DuplicateSlug =
         new("Organizations.DuplicateSlug", "Bu isimden üretilen organization adresi zaten kullanılıyor.");
@@ -28,14 +30,20 @@ public sealed class CreateOrganizationHandler(
             return Result.Failure<OrganizationSummary>(DuplicateSlug);
         }
 
+        var now = clock.UtcNow;
         var organization = Organization.Create(
             command.Name,
             slug,
             command.LogoUrl,
             command.CreatorUserId,
-            clock.UtcNow);
+            now);
 
         dbContext.Organizations.Add(organization);
+
+        foreach (var provisioner in provisioners)
+        {
+            await provisioner.ProvisionAsync(organization.Id, now, cancellationToken);
+        }
 
         try
         {

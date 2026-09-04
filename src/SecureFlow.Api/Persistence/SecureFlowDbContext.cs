@@ -44,6 +44,12 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
 
     public DbSet<WorkItemLabel> WorkItemLabels => Set<WorkItemLabel>();
 
+    public DbSet<Workflow> Workflows => Set<Workflow>();
+
+    public DbSet<WorkflowState> WorkflowStates => Set<WorkflowState>();
+
+    public DbSet<WorkflowTransition> WorkflowTransitions => Set<WorkflowTransition>();
+
     public async Task<PermissionRole?> GetActiveOrganizationRoleAsync(
         Guid organizationId,
         Guid userId,
@@ -89,6 +95,14 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
                 $"SELECT \"Id\" AS \"Value\" FROM \"Projects\" WHERE \"Id\" = {projectId} FOR UPDATE")
             .SingleOrDefaultAsync(cancellationToken);
         return lockedProjectId != Guid.Empty;
+    }
+
+    public async Task<bool> LockWorkItemAsync(Guid workItemId, CancellationToken cancellationToken)
+    {
+        var lockedWorkItemId = await Database.SqlQuery<Guid>(
+                $"SELECT \"Id\" AS \"Value\" FROM \"WorkItems\" WHERE \"Id\" = {workItemId} FOR UPDATE")
+            .SingleOrDefaultAsync(cancellationToken);
+        return lockedWorkItemId != Guid.Empty;
     }
 
     public async Task<bool> LockOrganizationMemberAsync(
@@ -257,6 +271,12 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .WithMany()
             .HasForeignKey(workItem => new { workItem.ProjectId, workItem.OrganizationId })
             .HasPrincipalKey(project => new { project.Id, project.OrganizationId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Workflow>()
+            .HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(workflow => workflow.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<WorkItem>()
