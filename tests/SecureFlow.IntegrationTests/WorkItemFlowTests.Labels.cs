@@ -20,8 +20,11 @@ public partial class WorkItemFlowTests
         var itemId = item.GetProperty("id").GetGuid();
         var response = await owner.Client.PostAsJsonAsync($"/api/v1/projects/{projectId}/labels", new
         {
-            name = "  Ｓｅｃｕｒｉｔｙ  ", organizationId = Guid.NewGuid(), createdBy = Guid.NewGuid(),
-            normalizedName = "forged", projectId = Guid.NewGuid(),
+            name = "  Ｓｅｃｕｒｉｔｙ  ",
+            organizationId = Guid.NewGuid(),
+            createdBy = Guid.NewGuid(),
+            normalizedName = "forged",
+            projectId = Guid.NewGuid(),
         });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var label = await response.Content.ReadFromJsonAsync<JsonElement>();

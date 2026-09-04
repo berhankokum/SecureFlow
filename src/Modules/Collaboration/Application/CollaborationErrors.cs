@@ -19,4 +19,8 @@ public static class CollaborationErrors
     public static readonly Error CommentDeleted = new(
         "Collaboration.CommentDeleted",
         "Silinmiş yorum değiştirilemez.");
+
+    public static readonly Error InvalidMention = new(
+        "Collaboration.InvalidMention",
+        "Mention seçimi geçersiz veya bu WorkItem için erişilebilir değil.");
 }

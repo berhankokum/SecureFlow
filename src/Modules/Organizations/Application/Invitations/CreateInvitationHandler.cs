@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using SecureFlow.Contracts.Email;
 using SecureFlow.Contracts.Identity;
+using SecureFlow.Contracts.Notifications;
 using SecureFlow.Modules.Organizations.Application.Abstractions;
 using SecureFlow.Modules.Organizations.Application.Authorization;
 using SecureFlow.Modules.Organizations.Application.Models;
@@ -24,6 +25,7 @@ public sealed class CreateInvitationHandler(
     IOrganizationsDbContext dbContext,
     IUserDirectory userDirectory,
     IEmailSender emailSender,
+    INotificationWriter notificationWriter,
     IOptions<InvitationOptions> options,
     IClock clock,
     ILogger<CreateInvitationHandler> logger)
@@ -138,6 +140,21 @@ public sealed class CreateInvitationHandler(
             invitation.Revoke(clock.UtcNow);
             await dbContext.SaveChangesAsync(cancellationToken);
             return Result.Failure<OrganizationInvitationSummary>(OrganizationErrors.EmailDeliveryFailed);
+        }
+
+        if (targetUser is not null && targetUser.Id != command.CurrentUserId)
+        {
+            notificationWriter.Add(new NotificationWriteRequest(
+                command.OrganizationId,
+                targetUser.Id,
+                NotificationTypes.InvitationReceived,
+                "Organization daveti",
+                $"{organization.Name} organization'ına davet edildiniz.",
+                NotificationResourceTypes.OrganizationInvitation,
+                invitation.Id,
+                invitation.Id,
+                now));
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         return Result.Success(ToSummary(invitation, "PENDING"));

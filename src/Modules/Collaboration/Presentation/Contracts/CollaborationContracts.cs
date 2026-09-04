@@ -4,7 +4,9 @@ using SecureFlow.Modules.Collaboration.Domain;
 
 namespace SecureFlow.Modules.Collaboration.Presentation.Contracts;
 
-public sealed record CommentContentRequest(string Content);
+public sealed record CommentContentRequest(
+    string Content,
+    IReadOnlyList<Guid>? MentionedUserIds = null);
 
 public sealed class CommentContentRequestValidator : AbstractValidator<CommentContentRequest>
 {
@@ -13,6 +15,9 @@ public sealed class CommentContentRequestValidator : AbstractValidator<CommentCo
         RuleFor(request => request.Content)
             .NotEmpty()
             .MaximumLength(Comment.ContentMaxLength);
+        RuleFor(request => request.MentionedUserIds)
+            .Must(userIds => userIds is null || userIds.Count <= 20)
+            .WithMessage("Bir yorum en fazla 20 kullanıcı mention edebilir.");
     }
 }
 
@@ -27,7 +32,8 @@ public sealed record CommentResponse(
     DateTimeOffset UpdatedAt,
     DateTimeOffset? DeletedAt,
     bool CanUpdate,
-    bool CanDelete)
+    bool CanDelete,
+    IReadOnlyList<MentionResponse> Mentions)
 {
     public static CommentResponse From(CommentSummary comment) => new(
         comment.Id,
@@ -40,8 +46,11 @@ public sealed record CommentResponse(
         comment.UpdatedAt,
         comment.DeletedAt,
         comment.CanUpdate,
-        comment.CanDelete);
+        comment.CanDelete,
+        comment.Mentions.Select(mention => new MentionResponse(mention.UserId, mention.Email)).ToArray());
 }
+
+public sealed record MentionResponse(Guid UserId, string Email);
 
 public sealed record ActivityResponse(
     Guid Id,

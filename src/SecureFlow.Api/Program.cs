@@ -14,6 +14,7 @@ using SecureFlow.Modules.Teams;
 using SecureFlow.Modules.Projects;
 using SecureFlow.Modules.WorkItems;
 using SecureFlow.Modules.Collaboration;
+using SecureFlow.Modules.Notifications;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -65,6 +66,7 @@ try
     builder.Services.AddProjectsModule<SecureFlowDbContext>();
     builder.Services.AddWorkItemsModule<SecureFlowDbContext>();
     builder.Services.AddCollaborationModule<SecureFlowDbContext>();
+    builder.Services.AddNotificationsModule<SecureFlowDbContext>();
     builder.Services.AddAuthorization();
 
     builder.Services.AddRateLimiter(options =>

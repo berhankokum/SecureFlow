@@ -42,7 +42,7 @@ describe("WorkItemCollaborationSection", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Yorum boş olamaz");
     await user.type(screen.getByLabelText("Yorum"), "  Yetki kontrol edildi.  ");
     await user.click(screen.getByRole("button", { name: "Yorum ekle" }));
-    expect(create).toHaveBeenCalledWith("Yetki kontrol edildi.");
+    expect(create).toHaveBeenCalledWith({ content: "Yetki kontrol edildi.", mentionedUserIds: [] });
   });
 
   it("renders deleted comments as a placeholder without leaking content", () => {
@@ -50,6 +50,7 @@ describe("WorkItemCollaborationSection", () => {
       id: "comment", organizationId: "org", workItemId: "workitem", authorId: "author",
       authorEmail: "author@example.com", content: null, createdAt: time, updatedAt: time,
       deletedAt: time, canUpdate: false, canDelete: false,
+      mentions: [],
     }];
     renderWithProviders(<WorkItemCollaborationSection workItem={workItem} projectArchived={false} />);
 
@@ -65,6 +66,7 @@ describe("WorkItemCollaborationSection", () => {
       id: "comment", organizationId: "org", workItemId: "workitem", authorId: "author",
       authorEmail: "author@example.com", content: "İlk", createdAt: time, updatedAt: time,
       deletedAt: null, canUpdate: true, canDelete: true,
+      mentions: [],
     }];
     renderWithProviders(<WorkItemCollaborationSection workItem={workItem} projectArchived={false} />);
 
@@ -74,10 +76,26 @@ describe("WorkItemCollaborationSection", () => {
     await user.clear(editor);
     await user.type(editor, "İkinci");
     await user.click(within(row).getByRole("button", { name: "Değişiklikleri kaydet" }));
-    expect(update).toHaveBeenCalledWith({ commentId: "comment", content: "İkinci" });
+    expect(update).toHaveBeenCalledWith({ commentId: "comment", content: "İkinci", mentionedUserIds: [] });
     await user.click(within(row).getByRole("button", { name: "Sil" }));
     expect(remove).toHaveBeenCalledWith("comment");
     confirm.mockRestore();
+  });
+
+  it("inserts a project-access candidate as an email mention and sends the matching user id", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<WorkItemCollaborationSection workItem={workItem} projectArchived={false} mentionCandidates={[{ userId: "target", email: "target@example.com" }]} />);
+
+    await user.selectOptions(screen.getByLabelText("Mention eklenecek kullanıcı"), "target");
+    await user.click(screen.getByRole("button", { name: "Mention ekle" }));
+    expect(screen.getByLabelText("Yorum")).toHaveValue("@target@example.com ");
+    await user.type(screen.getByLabelText("Yorum"), "kontrol eder misin?");
+    await user.click(screen.getByRole("button", { name: "Yorum ekle" }));
+
+    expect(create).toHaveBeenCalledWith({
+      content: "@target@example.com kontrol eder misin?",
+      mentionedUserIds: ["target"],
+    });
   });
 
   it("shows a readable activity timeline and keeps archived resources read-only", () => {

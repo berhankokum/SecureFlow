@@ -16,11 +16,11 @@ public sealed class WorkflowTransitionConfiguration : IEntityTypeConfiguration<W
         builder.Property(transition => transition.RequiredPermission)
             .HasMaxLength(WorkflowTransition.RequiredPermissionMaxLength);
         builder.HasIndex(transition => new
-            {
-                transition.WorkflowId,
-                transition.FromStateId,
-                transition.ToStateId,
-            })
+        {
+            transition.WorkflowId,
+            transition.FromStateId,
+            transition.ToStateId,
+        })
             .IsUnique()
             .HasDatabaseName("UX_WorkflowTransitions_WorkflowId_FromStateId_ToStateId");
 

@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Activity;
+using SecureFlow.Contracts.Notifications;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Application.Models;
 using SecureFlow.SharedKernel;
@@ -21,6 +22,7 @@ public static class WorkflowErrors
 public sealed class WorkflowHandlers(
     IWorkItemsDbContext dbContext,
     IActivityWriter activityWriter,
+    INotificationWriter notificationWriter,
     IClock clock)
 {
     public async Task<Result<WorkflowSummary>> GetAsync(
@@ -162,7 +164,7 @@ public sealed class WorkflowHandlers(
 
         var now = clock.UtcNow;
         workItem.Transition(transition, now);
-        activityWriter.Add(new ActivityWriteRequest(
+        var activityId = activityWriter.Add(new ActivityWriteRequest(
             workItem.OrganizationId,
             workItem.ProjectId,
             workItem.Id,
@@ -174,6 +176,32 @@ public sealed class WorkflowHandlers(
                 ["toState"] = toState,
             },
             now));
+        var recipients = new Guid?[] { workItem.ReporterId, workItem.AssigneeId }
+            .OfType<Guid>()
+            .Distinct()
+            .Where(userId => userId != currentUserId);
+        foreach (var recipientId in recipients)
+        {
+            if (!await dbContext.CanUserAccessProjectAsync(
+                    workItem.ProjectId,
+                    workItem.OrganizationId,
+                    recipientId,
+                    cancellationToken))
+            {
+                continue;
+            }
+
+            notificationWriter.Add(new NotificationWriteRequest(
+                workItem.OrganizationId,
+                recipientId,
+                NotificationTypes.WorkItemStatusChanged,
+                "WorkItem durumu değişti",
+                $"{project.ProjectKey}-{workItem.Number}: {fromState} → {toState}.",
+                NotificationResourceTypes.WorkItem,
+                workItem.Id,
+                activityId,
+                now));
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Result.Success();

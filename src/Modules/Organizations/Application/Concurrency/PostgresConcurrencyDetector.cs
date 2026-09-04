@@ -14,7 +14,10 @@ internal static class PostgresConcurrencyDetector
 
         for (Exception? current = exception; current is not null; current = current.InnerException)
         {
-            if (current is PostgresException { SqlState: PostgresErrorCodes.SerializationFailure })
+            if (current is PostgresException
+                {
+                    SqlState: PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected,
+                })
             {
                 return true;
             }

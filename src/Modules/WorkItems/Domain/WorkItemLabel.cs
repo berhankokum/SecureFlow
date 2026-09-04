@@ -26,7 +26,10 @@ public sealed class WorkItemLabel
         if (assignedBy == Guid.Empty) throw new ArgumentException("AssignedBy cannot be empty.", nameof(assignedBy));
         return new WorkItemLabel
         {
-            WorkItemId = workItem.Id, LabelId = label.Id, AssignedBy = assignedBy, AssignedAt = now,
+            WorkItemId = workItem.Id,
+            LabelId = label.Id,
+            AssignedBy = assignedBy,
+            AssignedAt = now,
         };
     }
 }

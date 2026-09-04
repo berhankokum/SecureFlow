@@ -5,6 +5,7 @@ import { OrganizationSwitcher } from "@/features/organizations/components/Organi
 import { useCurrentOrganization } from "@/features/organizations/hooks/useCurrentOrganization";
 import { usePermission } from "@/features/authorization/hooks/usePermission";
 import { permissions } from "@/features/authorization/permissions";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 
 /** FAZ 3 tenant-aware application shell. */
 export function AppShell() {
@@ -26,6 +27,7 @@ export function AppShell() {
         {user ? (
           <div className="flex items-center gap-4 text-sm text-slate-600">
             <span>{user.email}</span>
+            <NotificationBell />
             <button
               type="button"
               onClick={handleLogout}

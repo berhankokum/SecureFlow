@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { permissions } from "@/features/authorization/permissions";
 import { useCurrentOrganization } from "@/features/organizations/hooks/useCurrentOrganization";
 import { useProject, useProjects } from "@/features/projects/hooks/useProjects";
+import { useMembers } from "@/features/memberships/hooks/useMembers";
 import { ApiError } from "@/lib/api/apiClient";
 import { toWorkItemPayload } from "../api/toWorkItemPayload";
 import { WorkItemForm } from "../components/WorkItemForm";
@@ -18,6 +19,7 @@ export function WorkItemDetailPage() {
   const projectsQuery = useProjects(organization.id);
   const project = projectsQuery.data?.find(item => item.key === projectKey);
   const projectQuery = useProject(project?.id ?? "");
+  const membersQuery = useMembers(organization.id);
   const workItemsQuery = useWorkItems(project?.id ?? "");
   const summary = workItemsQuery.data?.find(item => item.key === workItemKey.toUpperCase());
   const workItemQuery = useWorkItem(summary?.id ?? "");
@@ -27,13 +29,17 @@ export function WorkItemDetailPage() {
   const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  if (projectsQuery.isLoading || (project && (projectQuery.isLoading || workItemsQuery.isLoading)) || (summary && workItemQuery.isLoading)) return <p className="text-sm text-slate-600">WorkItem yükleniyor...</p>;
-  if (projectsQuery.isError || !project || projectQuery.isError || !projectQuery.data || workItemsQuery.isError || !summary || workItemQuery.isError || !workItem) return <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">WorkItem bulunamadı veya erişim yetkiniz yok.</p>;
+  if (projectsQuery.isLoading || membersQuery.isLoading || (project && (projectQuery.isLoading || workItemsQuery.isLoading)) || (summary && workItemQuery.isLoading)) return <p className="text-sm text-slate-600">WorkItem yükleniyor...</p>;
+  if (projectsQuery.isError || membersQuery.isError || !project || projectQuery.isError || !projectQuery.data || workItemsQuery.isError || !summary || workItemQuery.isError || !workItem) return <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">WorkItem bulunamadı veya erişim yetkiniz yok.</p>;
 
   const projectArchived = project.archivedAt !== null;
   const isArchived = workItem.archivedAt !== null;
   const canUpdate = !projectArchived && !isArchived && workItem.permissions.includes(permissions.workItemUpdate);
   const canArchive = !projectArchived && !isArchived && workItem.permissions.includes(permissions.workItemArchive);
+  const mentionCandidates = Array.from(new Map([
+    ...projectQuery.data.members.map(member => [member.userId, { userId: member.userId, email: member.email }] as const),
+    ...(membersQuery.data ?? []).filter(member => member.role === "OWNER" || member.role === "ADMIN").map(member => [member.userId, { userId: member.userId, email: member.email }] as const),
+  ]).values()).sort((left, right) => left.email.localeCompare(right.email));
 
   const runAction = async (action: () => Promise<unknown>) => {
     setActionError(null);
@@ -47,7 +53,7 @@ export function WorkItemDetailPage() {
     {projectArchived ? <p className="mt-5 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">Project archived olduğu için WorkItem salt okunurdur.</p> : isArchived ? <p className="mt-5 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">Archived WorkItem salt okunurdur.</p> : null}
     <WorkItemAssignmentSection workItem={workItem} project={projectQuery.data} />
     <WorkItemLabelsSection workItem={workItem} projectArchived={projectArchived} />
-    <WorkItemCollaborationSection workItem={workItem} projectArchived={projectArchived} />
+    <WorkItemCollaborationSection workItem={workItem} projectArchived={projectArchived} mentionCandidates={mentionCandidates} />
     {actionError ? <p className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p> : null}
     {editing ? <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5"><WorkItemForm mode="update" initialValues={{ type: workItem.type, title: workItem.title, description: workItem.description ?? "", priority: workItem.priority, dueDate: workItem.dueDate ?? "" }} onCancel={() => setEditing(false)} onSubmit={async values => { await updateMutation.mutateAsync(toWorkItemPayload(values)); setEditing(false); }} /></div> : null}
   </section>;
