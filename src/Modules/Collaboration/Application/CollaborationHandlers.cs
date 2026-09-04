@@ -1,9 +1,11 @@
 using System.Data;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Identity;
+using SecureFlow.Contracts.Notifications;
 using SecureFlow.Modules.Collaboration.Application.Abstractions;
 using SecureFlow.Modules.Collaboration.Application.Models;
 using SecureFlow.Modules.Collaboration.Domain;
@@ -11,9 +13,17 @@ using SecureFlow.SharedKernel;
 
 namespace SecureFlow.Modules.Collaboration.Application;
 
-public sealed record CreateCommentCommand(Guid WorkItemId, Guid AuthorId, string Content);
+public sealed record CreateCommentCommand(
+    Guid WorkItemId,
+    Guid AuthorId,
+    string Content,
+    IReadOnlyList<Guid> MentionedUserIds);
 
-public sealed record UpdateCommentCommand(Guid CommentId, Guid CurrentUserId, string Content);
+public sealed record UpdateCommentCommand(
+    Guid CommentId,
+    Guid CurrentUserId,
+    string Content,
+    IReadOnlyList<Guid> MentionedUserIds);
 
 public sealed class CollaborationScopeHandler(ICollaborationDbContext dbContext)
 {
@@ -41,8 +51,16 @@ public sealed class CommentHandlers(
     ICollaborationDbContext dbContext,
     IUserDirectory userDirectory,
     IActivityWriter activityWriter,
+    INotificationWriter notificationWriter,
     IClock clock)
 {
+    private const int MentionLimit = 20;
+
+    private static readonly Regex MentionTokenRegex = new(
+        @"(?<![\p{L}\p{N}._%+\-])@(?<email>[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})(?![A-Z0-9._%+\-])",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
+
     public async Task<Result<IReadOnlyList<CommentSummary>>> ListAsync(
         Guid workItemId,
         Guid currentUserId,
@@ -67,8 +85,14 @@ public sealed class CommentHandlers(
         var authorEmails = await userDirectory.GetEmailsByUserIdsAsync(
             comments.Select(comment => comment.AuthorId).Distinct().ToArray(),
             cancellationToken);
+        var mentions = await LoadMentionSummariesAsync(comments, cancellationToken);
         return Result.Success<IReadOnlyList<CommentSummary>>(
-            comments.Select(comment => ToSummary(comment, access, currentUserId, authorEmails)).ToArray());
+            comments.Select(comment => ToSummary(
+                comment,
+                access,
+                currentUserId,
+                authorEmails,
+                mentions[comment.Id].ToArray())).ToArray());
     }
 
     public async Task<Result<CommentSummary>> CreateAsync(
@@ -88,6 +112,16 @@ public sealed class CommentHandlers(
             return Result.Failure<CommentSummary>(accessResult.Error);
         }
 
+        var mentionResult = await ResolveMentionsAsync(
+            accessResult.Value,
+            command.Content,
+            command.MentionedUserIds,
+            cancellationToken);
+        if (mentionResult.IsFailure)
+        {
+            return Result.Failure<CommentSummary>(mentionResult.Error);
+        }
+
         var now = clock.UtcNow;
         var comment = Comment.Create(
             accessResult.Value.OrganizationId,
@@ -104,6 +138,19 @@ public sealed class CommentHandlers(
             ActivityTypes.CommentCreated,
             new Dictionary<string, string?> { ["commentId"] = comment.Id.ToString() },
             now));
+        AddMentionNotifications(
+            comment,
+            accessResult.Value,
+            command.AuthorId,
+            mentionResult.Value.Selected,
+            [],
+            now);
+        AddCommentNotifications(
+            comment,
+            accessResult.Value,
+            command.AuthorId,
+            mentionResult.Value,
+            now);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -115,7 +162,10 @@ public sealed class CommentHandlers(
             new Dictionary<Guid, string>
             {
                 [command.AuthorId] = author?.Email ?? "Bilinmeyen kullanıcı",
-            }));
+            },
+            mentionResult.Value.Selected
+                .Select(mention => new MentionSummary(mention.Key, mention.Value))
+                .ToArray()));
     }
 
     public async Task<Result> UpdateAsync(
@@ -161,7 +211,29 @@ public sealed class CommentHandlers(
             return Result.Failure(CollaborationErrors.Forbidden);
         }
 
-        comment.Update(command.Content, clock.UtcNow);
+        var mentionResult = await ResolveMentionsAsync(
+            accessResult.Value,
+            command.Content,
+            command.MentionedUserIds,
+            cancellationToken);
+        if (mentionResult.IsFailure)
+        {
+            return Result.Failure(mentionResult.Error);
+        }
+
+        var existingMentionUserIds = await dbContext.Mentions
+            .Where(mention => mention.CommentId == comment.Id)
+            .Select(mention => mention.UserId)
+            .ToArrayAsync(cancellationToken);
+        var now = clock.UtcNow;
+        comment.Update(command.Content, now);
+        AddMentionNotifications(
+            comment,
+            accessResult.Value,
+            command.CurrentUserId,
+            mentionResult.Value.Selected,
+            existingMentionUserIds,
+            now);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Result.Success();
@@ -274,7 +346,8 @@ public sealed class CommentHandlers(
         Comment comment,
         CollaborationAccessContext access,
         Guid currentUserId,
-        IReadOnlyDictionary<Guid, string> authorEmails)
+        IReadOnlyDictionary<Guid, string> authorEmails,
+        IReadOnlyList<MentionSummary> mentions)
     {
         var mutable = !access.IsProjectArchived && !access.IsWorkItemArchived && !comment.IsDeleted;
         var canUpdate = mutable
@@ -294,8 +367,155 @@ public sealed class CommentHandlers(
             comment.UpdatedAt,
             comment.DeletedAt,
             canUpdate,
-            canDelete);
+            canDelete,
+            mentions);
     }
+
+    private async Task<ILookup<Guid, MentionSummary>> LoadMentionSummariesAsync(
+        IReadOnlyCollection<Comment> comments,
+        CancellationToken cancellationToken)
+    {
+        if (comments.Count == 0)
+        {
+            return Array.Empty<(Guid CommentId, MentionSummary Mention)>()
+                .ToLookup(row => row.CommentId, row => row.Mention);
+        }
+
+        var commentIds = comments.Select(comment => comment.Id).ToArray();
+        var mentions = await dbContext.Mentions
+            .AsNoTracking()
+            .Where(mention => commentIds.Contains(mention.CommentId))
+            .ToArrayAsync(cancellationToken);
+        var emails = await userDirectory.GetEmailsByUserIdsAsync(
+            mentions.Select(mention => mention.UserId).Distinct().ToArray(),
+            cancellationToken);
+        var commentsById = comments.ToDictionary(comment => comment.Id);
+        return mentions
+            .Where(mention => emails.TryGetValue(mention.UserId, out var email)
+                && !commentsById[mention.CommentId].IsDeleted
+                && ExtractMentionEmails(commentsById[mention.CommentId].Content).Contains(
+                    email,
+                    StringComparer.OrdinalIgnoreCase))
+            .Select(mention => (
+                mention.CommentId,
+                Mention: new MentionSummary(mention.UserId, emails[mention.UserId])))
+            .ToLookup(row => row.CommentId, row => row.Mention);
+    }
+
+    private async Task<Result<MentionResolution>> ResolveMentionsAsync(
+        CollaborationAccessContext access,
+        string content,
+        IReadOnlyList<Guid> requestedUserIds,
+        CancellationToken cancellationToken)
+    {
+        var distinctRequestedIds = requestedUserIds.Distinct().ToArray();
+        var tokenEmails = ExtractMentionEmails(content);
+        if (distinctRequestedIds.Length > MentionLimit
+            || tokenEmails.Count > MentionLimit
+            || distinctRequestedIds.Any(id => id == Guid.Empty))
+        {
+            return Result.Failure<MentionResolution>(CollaborationErrors.InvalidMention);
+        }
+
+        var candidateIds = await dbContext.GetMentionCandidateUserIdsAsync(
+            access.ProjectId,
+            access.OrganizationId,
+            cancellationToken);
+        var candidateEmails = await userDirectory.GetEmailsByUserIdsAsync(candidateIds, cancellationToken);
+        var candidatesByEmail = candidateEmails.ToDictionary(
+            pair => pair.Value,
+            pair => pair.Key,
+            StringComparer.OrdinalIgnoreCase);
+        var tokenUserIds = new HashSet<Guid>();
+        foreach (var tokenEmail in tokenEmails)
+        {
+            if (!candidatesByEmail.TryGetValue(tokenEmail, out var userId))
+            {
+                return Result.Failure<MentionResolution>(CollaborationErrors.InvalidMention);
+            }
+
+            tokenUserIds.Add(userId);
+        }
+
+        if (!tokenUserIds.SetEquals(distinctRequestedIds)
+            || distinctRequestedIds.Any(id => !candidateEmails.ContainsKey(id)))
+        {
+            return Result.Failure<MentionResolution>(CollaborationErrors.InvalidMention);
+        }
+
+        return Result.Success(new MentionResolution(
+            candidateEmails,
+            distinctRequestedIds.ToDictionary(id => id, id => candidateEmails[id])));
+    }
+
+    private void AddMentionNotifications(
+        Comment comment,
+        CollaborationAccessContext access,
+        Guid actorId,
+        IReadOnlyDictionary<Guid, string> selectedMentions,
+        IReadOnlyCollection<Guid> existingMentionUserIds,
+        DateTimeOffset now)
+    {
+        var existing = existingMentionUserIds.ToHashSet();
+        foreach (var mentionedUserId in selectedMentions.Keys.Where(id => !existing.Contains(id)))
+        {
+            var mention = Mention.Create(comment.OrganizationId, comment.Id, mentionedUserId, now);
+            dbContext.Mentions.Add(mention);
+            if (mentionedUserId == actorId)
+            {
+                continue;
+            }
+
+            notificationWriter.Add(new NotificationWriteRequest(
+                access.OrganizationId,
+                mentionedUserId,
+                NotificationTypes.Mentioned,
+                "Bir yorumda sizden bahsedildi",
+                "Erişebildiğiniz bir WorkItem yorumunda sizden bahsedildi.",
+                NotificationResourceTypes.WorkItem,
+                access.WorkItemId,
+                mention.Id,
+                now));
+        }
+    }
+
+    private void AddCommentNotifications(
+        Comment comment,
+        CollaborationAccessContext access,
+        Guid actorId,
+        MentionResolution mentions,
+        DateTimeOffset now)
+    {
+        var mentionedUserIds = mentions.Selected.Keys.ToHashSet();
+        var recipients = new Guid?[] { access.ReporterId, access.AssigneeId }
+            .OfType<Guid>()
+            .Distinct()
+            .Where(userId => userId != actorId
+                && !mentionedUserIds.Contains(userId)
+                && mentions.Candidates.ContainsKey(userId));
+        foreach (var recipientId in recipients)
+        {
+            notificationWriter.Add(new NotificationWriteRequest(
+                access.OrganizationId,
+                recipientId,
+                NotificationTypes.CommentAdded,
+                "Yeni yorum",
+                "Takip ettiğiniz bir WorkItem'a yeni yorum eklendi.",
+                NotificationResourceTypes.WorkItem,
+                access.WorkItemId,
+                comment.Id,
+                now));
+        }
+    }
+
+    private static IReadOnlySet<string> ExtractMentionEmails(string content) =>
+        MentionTokenRegex.Matches(content)
+            .Select(match => match.Groups["email"].Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    private sealed record MentionResolution(
+        IReadOnlyDictionary<Guid, string> Candidates,
+        IReadOnlyDictionary<Guid, string> Selected);
 }
 
 public sealed class ActivityHandlers(

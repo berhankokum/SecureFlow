@@ -41,7 +41,11 @@ public sealed class CommentsController(
         }
 
         var result = await handlers.UpdateAsync(
-            new UpdateCommentCommand(commentId, currentUserId, request.Content),
+            new UpdateCommentCommand(
+                commentId,
+                currentUserId,
+                request.Content,
+                request.MentionedUserIds ?? []),
             cancellationToken);
         return result.IsSuccess ? NoContent() : CollaborationErrorResult.Map(this, result.Error);
     }

@@ -23,6 +23,20 @@ public sealed class RemoveMemberHandler(
         RemoveMemberCommand command,
         CancellationToken cancellationToken = default)
     {
+        try
+        {
+            return await HandleCoreAsync(command, cancellationToken);
+        }
+        catch (Exception exception) when (PostgresConcurrencyDetector.IsSerializationFailure(exception))
+        {
+            return Result.Failure(OrganizationErrors.ConcurrentMembership);
+        }
+    }
+
+    private async Task<Result> HandleCoreAsync(
+        RemoveMemberCommand command,
+        CancellationToken cancellationToken)
+    {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(
             IsolationLevel.ReadCommitted,
             cancellationToken);
@@ -100,15 +114,8 @@ public sealed class RemoveMemberHandler(
 
         // Module cleanups run inside this transaction; WorkItems clears active
         // assignments while preserving archived historical assignment data.
-        try
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch (Exception exception) when (PostgresConcurrencyDetector.IsSerializationFailure(exception))
-        {
-            return Result.Failure(OrganizationErrors.ConcurrentMembership);
-        }
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

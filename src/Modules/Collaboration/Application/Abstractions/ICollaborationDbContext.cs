@@ -13,6 +13,8 @@ public sealed record CollaborationAccessContext(
     Guid WorkItemId,
     Guid ProjectId,
     Guid OrganizationId,
+    Guid ReporterId,
+    Guid? AssigneeId,
     bool IsWorkItemArchived,
     bool IsProjectArchived,
     bool HasProjectAccess,
@@ -24,6 +26,8 @@ public interface ICollaborationDbContext
     DbSet<Comment> Comments { get; }
 
     DbSet<ActivityEvent> ActivityEvents { get; }
+
+    DbSet<Mention> Mentions { get; }
 
     DatabaseFacade Database { get; }
 
@@ -38,6 +42,11 @@ public interface ICollaborationDbContext
     Task<CollaborationAccessContext?> GetCollaborationAccessAsync(
         Guid workItemId,
         Guid userId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Guid>> GetMentionCandidateUserIdsAsync(
+        Guid projectId,
+        Guid organizationId,
         CancellationToken cancellationToken);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

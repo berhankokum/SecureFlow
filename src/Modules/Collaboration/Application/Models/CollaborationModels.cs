@@ -11,7 +11,10 @@ public sealed record CommentSummary(
     DateTimeOffset UpdatedAt,
     DateTimeOffset? DeletedAt,
     bool CanUpdate,
-    bool CanDelete);
+    bool CanDelete,
+    IReadOnlyList<MentionSummary> Mentions);
+
+public sealed record MentionSummary(Guid UserId, string Email);
 
 public sealed record ActivitySummary(
     Guid Id,

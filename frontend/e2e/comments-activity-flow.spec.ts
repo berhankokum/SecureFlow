@@ -6,7 +6,7 @@ const orgId = "11111111-1111-1111-1111-111111111111";
 async function arrange(page: Page, viewer = false) {
   const permissionList = viewer ? [] : ["comment.create", "comment.update", "comment.delete"];
   const organization = { id: orgId, name: "ACME", slug: "acme", role: "MEMBER", permissions: ["member.view"], createdAt: time, archivedAt: null };
-  const project = { id: "project", organizationId: orgId, key: "SF", name: "SecureFlow", description: null, createdBy: "owner", createdAt: time, updatedAt: time, archivedAt: null, projectRole: viewer ? "VIEWER" : "MANAGER", permissions: permissionList, members: [] };
+  const project = { id: "project", organizationId: orgId, key: "SF", name: "SecureFlow", description: null, createdBy: "owner", createdAt: time, updatedAt: time, archivedAt: null, projectRole: viewer ? "VIEWER" : "MANAGER", permissions: permissionList, members: [{ userId: "target", email: "target@example.com", role: "CONTRIBUTOR" }] };
   const item = { id: "item", organizationId: orgId, projectId: "project", projectKey: "SF", number: 1, key: "SF-1", type: "TASK", title: "Collaboration", description: null, priority: "MEDIUM", workflowStateId: "backlog", workflowStateName: "BACKLOG", workflowStateCategory: "TODO", reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: null, assigneeEmail: null, dueDate: null, createdAt: time, updatedAt: time, archivedAt: null, permissions: permissionList, labels: [] };
   let comments = viewer ? [{ id: "comment", organizationId: orgId, workItemId: "item", authorId: "owner", authorEmail: "owner@example.com", content: "Salt okunur yorum", createdAt: time, updatedAt: time, deletedAt: null, canUpdate: false, canDelete: false }] : [];
   let activity = [{ id: "created", organizationId: orgId, projectId: "project", workItemId: "item", actorId: "owner", actorEmail: "owner@example.com", type: "WORK_ITEM_CREATED", metadata: { workItemKey: "SF-1" }, createdAt: time }];
@@ -22,14 +22,15 @@ async function arrange(page: Page, viewer = false) {
     if (path === "/api/v1/me") return json({ id: "owner", email: "owner@example.com", emailConfirmed: true });
     if (path === "/api/v1/organizations") return json([organization]);
     if (path === `/api/v1/organizations/${orgId}/projects`) return json([project]);
-    if (path === `/api/v1/organizations/${orgId}/members`) return json([]);
+    if (path === `/api/v1/organizations/${orgId}/members`) return json([{ id: "membership", userId: "owner", email: "owner@example.com", role: "OWNER", joinedAt: time, invitedBy: null }]);
     if (path === "/api/v1/projects/project") return json(project);
     if (path === "/api/v1/projects/project/work-items") return json([item]);
     if (path === "/api/v1/projects/project/labels") return json([]);
     if (path === "/api/v1/work-items/item") return json(item);
     if (path === "/api/v1/work-items/item/comments") {
       if (method === "GET") return json(comments);
-      const comment = { id: "comment", organizationId: orgId, workItemId: "item", authorId: "owner", authorEmail: "owner@example.com", content: request.postDataJSON().content, createdAt: time, updatedAt: time, deletedAt: null, canUpdate: true, canDelete: true };
+      const payload = request.postDataJSON();
+      const comment = { id: "comment", organizationId: orgId, workItemId: "item", authorId: "owner", authorEmail: "owner@example.com", content: payload.content, createdAt: time, updatedAt: time, deletedAt: null, canUpdate: true, canDelete: true, mentions: payload.mentionedUserIds.includes("target") ? [{ userId: "target", email: "target@example.com" }] : [] };
       comments = [comment];
       activity = [{ id: "comment-created", organizationId: orgId, projectId: "project", workItemId: "item", actorId: "owner", actorEmail: "owner@example.com", type: "COMMENT_CREATED", metadata: { commentId: "comment" }, createdAt: time }, ...activity];
       return json(comment, 201);
@@ -67,6 +68,18 @@ test("comment editor, edit, soft delete and activity timeline work end to end", 
   await expect(page.getByText("Bu yorum silindi.")).toBeVisible();
   expect(mutations.map(item => item.method)).toEqual(["POST", "PATCH", "DELETE"]);
   expect(mutations.every(item => item.csrf === "e2e-csrf-token")).toBe(true);
+});
+
+test("mention picker sends the canonical email token and matching project user id", async ({ page }) => {
+  await arrange(page);
+  await page.goto("/app/acme/work-items/SF-1");
+  await page.getByLabel("Mention eklenecek kullanıcı").selectOption("target");
+  await page.getByRole("button", { name: "Mention ekle" }).click();
+  await page.getByRole("textbox", { name: "Yorum", exact: true }).pressSequentially("inceleyebilir misin?");
+  const requestPromise = page.waitForRequest(request => request.url().endsWith("/api/v1/work-items/item/comments") && request.method() === "POST");
+  await page.getByRole("button", { name: "Yorum ekle" }).click();
+  const payload = (await requestPromise).postDataJSON();
+  expect(payload).toEqual({ content: "@target@example.com inceleyebilir misin?", mentionedUserIds: ["target"] });
 });
 
 test("viewer sees comments and activity without mutation controls", async ({ page }) => {

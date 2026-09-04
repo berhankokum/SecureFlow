@@ -60,7 +60,11 @@ public sealed class WorkItemCommentsController(
         }
 
         var result = await handlers.CreateAsync(
-            new CreateCommentCommand(workItemId, currentUserId, request.Content),
+            new CreateCommentCommand(
+                workItemId,
+                currentUserId,
+                request.Content,
+                request.MentionedUserIds ?? []),
             cancellationToken);
         return result.IsSuccess
             ? Created($"/api/v1/comments/{result.Value.Id}", CommentResponse.From(result.Value))

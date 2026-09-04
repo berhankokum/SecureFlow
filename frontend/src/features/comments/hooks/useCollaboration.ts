@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { collaborationApi } from "../api/collaborationApi";
+import type { CommentPayload } from "../api/types";
 
 export const commentKeys = {
   all: (workItemId: string) => ["comments", workItemId] as const,
@@ -28,7 +29,7 @@ export function useActivity(workItemId: string) {
 export function useCreateComment(workItemId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (content: string) => collaborationApi.createComment(workItemId, content),
+    mutationFn: (payload: CommentPayload) => collaborationApi.createComment(workItemId, payload),
     onSuccess: async () => Promise.all([
       queryClient.invalidateQueries({ queryKey: commentKeys.all(workItemId) }),
       queryClient.invalidateQueries({ queryKey: activityKeys.all(workItemId) }),
@@ -39,8 +40,8 @@ export function useCreateComment(workItemId: string) {
 export function useUpdateComment(workItemId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ commentId, content }: { commentId: string; content: string }) =>
-      collaborationApi.updateComment(commentId, content),
+    mutationFn: ({ commentId, ...payload }: CommentPayload & { commentId: string }) =>
+      collaborationApi.updateComment(commentId, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: commentKeys.all(workItemId) }),
   });
 }

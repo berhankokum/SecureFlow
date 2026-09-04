@@ -37,6 +37,7 @@ async function arrange(page: Page, role: "MANAGER" | "CONTRIBUTOR" | "VIEWER", a
     if (path === "/api/v1/me") return json({ id: "actor", email: "actor@example.com", emailConfirmed: true });
     if (path === "/api/v1/organizations") return json([organization]);
     if (path === `/api/v1/organizations/${orgId}/projects`) return json([{ ...project, members: undefined }]);
+    if (path === `/api/v1/organizations/${orgId}/members`) return json([]);
     if (path === "/api/v1/projects/project-1") return json(project);
     if (path === "/api/v1/projects/project-1/work-items") return json([workItem()]);
     if (path === "/api/v1/projects/project-1/labels") return json([]);

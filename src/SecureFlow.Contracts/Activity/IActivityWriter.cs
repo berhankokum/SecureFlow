@@ -26,5 +26,5 @@ public sealed record ActivityWriteRequest(
 /// </summary>
 public interface IActivityWriter
 {
-    void Add(ActivityWriteRequest request);
+    Guid Add(ActivityWriteRequest request);
 }

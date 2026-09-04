@@ -10,6 +10,17 @@ export interface Comment {
   deletedAt: string | null;
   canUpdate: boolean;
   canDelete: boolean;
+  mentions: Mention[];
+}
+
+export interface Mention {
+  userId: string;
+  email: string;
+}
+
+export interface CommentPayload {
+  content: string;
+  mentionedUserIds: string[];
 }
 
 export type ActivityType =

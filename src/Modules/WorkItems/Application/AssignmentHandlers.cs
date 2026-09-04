@@ -4,6 +4,7 @@ using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Organizations;
 using SecureFlow.Contracts.Projects;
+using SecureFlow.Contracts.Notifications;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Domain;
 using SecureFlow.SharedKernel;
@@ -20,6 +21,7 @@ public static class AssignmentErrors
 public sealed class AssignmentHandler(
     IWorkItemsDbContext dbContext,
     IActivityWriter activityWriter,
+    INotificationWriter notificationWriter,
     IClock clock)
 {
     public Task<Result> AssignOtherAsync(
@@ -167,7 +169,7 @@ public sealed class AssignmentHandler(
         var now = clock.UtcNow;
         if (workItem.Assign(assigneeId, now))
         {
-            activityWriter.Add(new ActivityWriteRequest(
+            var activityId = activityWriter.Add(new ActivityWriteRequest(
                 workItem.OrganizationId,
                 workItem.ProjectId,
                 workItem.Id,
@@ -179,6 +181,19 @@ public sealed class AssignmentHandler(
                     ["previousAssigneeId"] = previousAssigneeId?.ToString(),
                 },
                 now));
+            if (assigneeId != currentUserId)
+            {
+                notificationWriter.Add(new NotificationWriteRequest(
+                    workItem.OrganizationId,
+                    assigneeId,
+                    NotificationTypes.WorkItemAssigned,
+                    "WorkItem size atandı",
+                    $"{projectResult.Value.ProjectKey}-{workItem.Number} size atandı.",
+                    NotificationResourceTypes.WorkItem,
+                    workItem.Id,
+                    activityId,
+                    now));
+            }
         }
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

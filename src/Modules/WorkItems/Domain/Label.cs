@@ -26,8 +26,11 @@ public sealed class Label : AggregateRoot
 
         var label = new Label
         {
-            Id = Guid.NewGuid(), OrganizationId = organizationId, ProjectId = projectId,
-            CreatedBy = createdBy, CreatedAt = now,
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            ProjectId = projectId,
+            CreatedBy = createdBy,
+            CreatedAt = now,
         };
         label.Update(name, now);
         return label;

@@ -20,6 +20,7 @@ import { TeamDetailPage } from "@/features/teams/pages/TeamDetailPage";
 import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { WorkItemDetailPage } from "@/features/work-items/pages/WorkItemDetailPage";
+import { NotificationsPage } from "@/features/notifications/pages/NotificationsPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
                   { path: "projects", element: <ProjectsPage /> },
                   { path: "projects/:projectKey", element: <ProjectDetailPage /> },
                   { path: "work-items/:workItemKey", element: <WorkItemDetailPage /> },
+                  { path: "notifications", element: <NotificationsPage /> },
                 ],
               },
               {

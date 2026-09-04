@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SecureFlow.Api.Persistence;
+using SecureFlow.Contracts.Notifications;
 using SecureFlow.Modules.Identity.Domain;
 using SecureFlow.Modules.Organizations.Application.Invitations;
 using SecureFlow.Modules.Organizations.Domain;
@@ -34,6 +35,9 @@ public partial class MembershipInvitationFlowTests(AuthWebApplicationFactory fac
 
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var token = ExtractInvitationToken(emailSender, invited.Email);
+        var invitedNotifications = await invited.Client.GetFromJsonAsync<JsonElement>("/api/v1/notifications");
+        Assert.Single(invitedNotifications.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("type").GetString() == NotificationTypes.InvitationReceived);
 
         using (var scope = factory.Services.CreateScope())
         {

@@ -6,13 +6,17 @@ namespace SecureFlow.Modules.Collaboration.Application;
 
 public sealed class ActivityWriter(ICollaborationDbContext dbContext) : IActivityWriter
 {
-    public void Add(ActivityWriteRequest request) =>
-        dbContext.ActivityEvents.Add(ActivityEvent.Create(
+    public Guid Add(ActivityWriteRequest request)
+    {
+        var activity = ActivityEvent.Create(
             request.OrganizationId,
             request.ProjectId,
             request.WorkItemId,
             request.ActorId,
             request.Type,
             request.Metadata,
-            request.CreatedAt));
+            request.CreatedAt);
+        dbContext.ActivityEvents.Add(activity);
+        return activity.Id;
+    }
 }
