@@ -9,5 +9,6 @@ public interface IOrganizationMembershipRemovalCleanup
     Task RemoveActiveRelationshipsAsync(
         Guid organizationId,
         Guid userId,
+        Guid actorId,
         CancellationToken cancellationToken = default);
 }

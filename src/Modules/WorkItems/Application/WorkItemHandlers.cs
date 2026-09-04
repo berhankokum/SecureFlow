@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Identity;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Application.Models;
@@ -33,6 +34,7 @@ internal static class WorkItemModelMapper
     public static WorkItemSummary ToSummary(
         WorkItem workItem,
         WorkItemProjectContext project,
+        WorkflowStateSummary state,
         string reporterEmail,
         string? assigneeEmail,
         IReadOnlyList<WorkItemLabelSummary>? labels = null) =>
@@ -47,6 +49,9 @@ internal static class WorkItemModelMapper
             workItem.Title,
             workItem.Description,
             workItem.Priority,
+            workItem.WorkflowStateId,
+            state.Name,
+            state.Category,
             workItem.ReporterId,
             reporterEmail,
             workItem.AssigneeId,
@@ -58,6 +63,25 @@ internal static class WorkItemModelMapper
             project.Permissions,
             labels ?? []);
 
+    public static async Task<IReadOnlyDictionary<Guid, WorkflowStateSummary>> LoadStatesAsync(
+        IWorkItemsDbContext dbContext,
+        IEnumerable<Guid> stateIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = stateIds.Distinct().ToArray();
+        var states = await dbContext.WorkflowStates
+            .AsNoTracking()
+            .Where(state => ids.Contains(state.Id))
+            .ToArrayAsync(cancellationToken);
+        return states.ToDictionary(
+            state => state.Id,
+            state => new WorkflowStateSummary(
+                state.Id,
+                state.Name,
+                WorkflowHandlers.ToApiValue(state.Category),
+                state.Position));
+    }
+
     public static async Task<ILookup<Guid, WorkItemLabelSummary>> LoadLabelsAsync(
         IWorkItemsDbContext dbContext, Guid projectId, Guid? workItemId, CancellationToken cancellationToken)
     {
@@ -66,8 +90,12 @@ internal static class WorkItemModelMapper
             join label in dbContext.Labels.AsNoTracking() on assignment.LabelId equals label.Id
             where label.ProjectId == projectId && (workItemId == null || assignment.WorkItemId == workItemId)
             orderby label.Name
-            select new { assignment.WorkItemId, Label = new WorkItemLabelSummary(
-                label.Id, label.Name, assignment.AssignedBy, assignment.AssignedAt) })
+            select new
+            {
+                assignment.WorkItemId,
+                Label = new WorkItemLabelSummary(
+                    label.Id, label.Name, assignment.AssignedBy, assignment.AssignedAt)
+            })
             .ToArrayAsync(cancellationToken);
         return labels.ToLookup(item => item.WorkItemId, item => item.Label);
     }
@@ -92,6 +120,7 @@ public sealed class FindWorkItemScopeHandler(IWorkItemsDbContext dbContext)
 public sealed class CreateWorkItemHandler(
     IWorkItemsDbContext dbContext,
     IUserDirectory userDirectory,
+    IActivityWriter activityWriter,
     IClock clock)
 {
     public async Task<Result<WorkItemSummary>> HandleAsync(
@@ -134,6 +163,26 @@ public sealed class CreateWorkItemHandler(
             return Result.Failure<WorkItemSummary>(WorkItemErrors.NumberExhausted);
         }
 
+
+        var initialStateEntity = await (
+            from workflow in dbContext.Workflows.AsNoTracking()
+            join state in dbContext.WorkflowStates.AsNoTracking()
+                on workflow.Id equals state.WorkflowId
+            where workflow.OrganizationId == project.OrganizationId
+            orderby state.Position
+            select state)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (initialStateEntity is null)
+        {
+            return Result.Failure<WorkItemSummary>(WorkflowErrors.MissingConfiguration);
+        }
+
+        var initialState = new WorkflowStateSummary(
+            initialStateEntity.Id,
+            initialStateEntity.Name,
+            WorkflowHandlers.ToApiValue(initialStateEntity.Category),
+            initialStateEntity.Position);
+
         var now = clock.UtcNow;
         var workItem = WorkItem.Create(
             project.OrganizationId,
@@ -143,11 +192,23 @@ public sealed class CreateWorkItemHandler(
             command.Title,
             command.Description,
             command.Priority,
+            initialState.Id,
             command.ReporterId,
             command.DueDate,
             DateOnly.FromDateTime(now.UtcDateTime),
             now);
         dbContext.WorkItems.Add(workItem);
+        activityWriter.Add(new ActivityWriteRequest(
+            workItem.OrganizationId,
+            workItem.ProjectId,
+            workItem.Id,
+            command.ReporterId,
+            ActivityTypes.WorkItemCreated,
+            new Dictionary<string, string?>
+            {
+                ["workItemKey"] = $"{project.ProjectKey}-{workItem.Number}",
+            },
+            now));
 
         try
         {
@@ -157,6 +218,7 @@ public sealed class CreateWorkItemHandler(
             return Result.Success(WorkItemModelMapper.ToSummary(
                 workItem,
                 project,
+                initialState,
                 reporter?.Email ?? "Bilinmeyen kullanıcı",
                 assigneeEmail: null));
         }
@@ -204,10 +266,15 @@ public sealed class ListWorkItemsHandler(IWorkItemsDbContext dbContext, IUserDir
             cancellationToken);
 
         var labels = await WorkItemModelMapper.LoadLabelsAsync(dbContext, projectId, null, cancellationToken);
+        var states = await WorkItemModelMapper.LoadStatesAsync(
+            dbContext,
+            workItems.Select(workItem => workItem.WorkflowStateId),
+            cancellationToken);
         return Result.Success<IReadOnlyList<WorkItemSummary>>(
             workItems.Select(workItem => WorkItemModelMapper.ToSummary(
                 workItem,
                 project,
+                states[workItem.WorkflowStateId],
                 reporterEmails.GetValueOrDefault(workItem.ReporterId, "Bilinmeyen kullanıcı"),
                 workItem.AssigneeId is { } assigneeId
                     ? reporterEmails.GetValueOrDefault(assigneeId, "Bilinmeyen kullanıcı")
@@ -247,9 +314,14 @@ public sealed class GetWorkItemHandler(IWorkItemsDbContext dbContext, IUserDirec
             cancellationToken);
         var labels = await WorkItemModelMapper.LoadLabelsAsync(
             dbContext, workItem.ProjectId, workItemId, cancellationToken);
+        var states = await WorkItemModelMapper.LoadStatesAsync(
+            dbContext,
+            [workItem.WorkflowStateId],
+            cancellationToken);
         return Result.Success(WorkItemModelMapper.ToSummary(
             workItem,
             project,
+            states[workItem.WorkflowStateId],
             emails.GetValueOrDefault(workItem.ReporterId, "Bilinmeyen kullanıcı"),
             workItem.AssigneeId is { } assignedUserId
                 ? emails.GetValueOrDefault(assignedUserId, "Bilinmeyen kullanıcı")

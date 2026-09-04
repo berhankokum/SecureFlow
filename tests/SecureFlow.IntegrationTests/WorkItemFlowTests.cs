@@ -208,6 +208,7 @@ public partial class WorkItemFlowTests(AuthWebApplicationFactory factory)
             "Mismatched tenant",
             null,
             WorkItemPriority.Low,
+            Guid.NewGuid(),
             owner.UserId,
             null,
             DateOnly.FromDateTime(DateTime.UtcNow),

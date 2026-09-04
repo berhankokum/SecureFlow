@@ -21,7 +21,8 @@ async function arrange(page: Page, role: "MANAGER" | "CONTRIBUTOR" | "VIEWER", a
   let assigneeEmail: string | null = null;
   const workItem = () => ({
     id: "item-1", organizationId: orgId, projectId: project.id, projectKey: "SF", number: 1, key: "SF-1",
-    type: "TASK", title: "Assignment flow", description: null, priority: "MEDIUM", reporterId: "actor",
+    type: "TASK", title: "Assignment flow", description: null, priority: "MEDIUM", workflowStateId: "state-backlog",
+    workflowStateName: "BACKLOG", workflowStateCategory: "TODO", reporterId: "actor",
     reporterEmail: "actor@example.com", assigneeId, assigneeEmail, dueDate: null,
     createdAt: time, updatedAt: time, archivedAt: null, permissions: actorPermissions, labels: [],
   });

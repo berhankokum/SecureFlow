@@ -19,8 +19,10 @@ public sealed class WorkItemsController(
     UpdateWorkItemHandler updateHandler,
     ArchiveWorkItemHandler archiveHandler,
     AssignmentHandler assignmentHandler,
+    WorkflowHandlers workflowHandlers,
     IValidator<UpdateWorkItemRequest> updateValidator,
-    IValidator<AssignWorkItemRequest> assignValidator) : ControllerBase
+    IValidator<AssignWorkItemRequest> assignValidator,
+    IValidator<TransitionWorkItemRequest> transitionValidator) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(Guid workItemId, CancellationToken cancellationToken)
@@ -169,6 +171,37 @@ public sealed class WorkItemsController(
 
         var result = await assignmentHandler.UnassignAsync(
             workItemId,
+            currentUserId,
+            cancellationToken);
+        return result.IsSuccess ? NoContent() : WorkItemErrorResult.Map(this, result.Error);
+    }
+
+    [HttpPost("transition")]
+    [ValidateAntiforgery]
+    public async Task<IActionResult> Transition(
+        Guid workItemId,
+        TransitionWorkItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        if (await AuthorizeAsync(workItemId, Permissions.WorkItemTransition, cancellationToken)
+            is { } authorizationError)
+        {
+            return authorizationError;
+        }
+
+        if (await this.ValidateAsync(transitionValidator, request) is { } validationError)
+        {
+            return validationError;
+        }
+
+        var result = await workflowHandlers.TransitionAsync(
+            workItemId,
+            request.ToStateId,
             currentUserId,
             cancellationToken);
         return result.IsSuccess ? NoContent() : WorkItemErrorResult.Map(this, result.Error);

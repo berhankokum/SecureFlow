@@ -25,7 +25,8 @@ const project: ProjectDetails = {
 };
 const item: WorkItem = {
   id: "item", organizationId: "org", projectId: "project", projectKey: "SF", number: 1, key: "SF-1",
-  type: "TASK", title: "Assignment", description: null, priority: "MEDIUM", reporterId: "owner",
+  type: "TASK", title: "Assignment", description: null, priority: "MEDIUM", workflowStateId: "state-backlog",
+  workflowStateName: "BACKLOG", workflowStateCategory: "TODO", reporterId: "owner",
   reporterEmail: "owner@example.com", assigneeId: null, assigneeEmail: null, dueDate: null,
   createdAt: time, updatedAt: time, archivedAt: null,
   permissions: ["workitem.assign", "workitem.self_assign"], labels: [],

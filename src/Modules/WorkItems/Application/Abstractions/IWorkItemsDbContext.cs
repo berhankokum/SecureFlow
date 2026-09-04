@@ -20,9 +20,17 @@ public interface IWorkItemsDbContext
 
     DbSet<WorkItemLabel> WorkItemLabels { get; }
 
+    DbSet<Workflow> Workflows { get; }
+
+    DbSet<WorkflowState> WorkflowStates { get; }
+
+    DbSet<WorkflowTransition> WorkflowTransitions { get; }
+
     DatabaseFacade Database { get; }
 
     Task<bool> LockProjectAsync(Guid projectId, CancellationToken cancellationToken);
+
+    Task<bool> LockWorkItemAsync(Guid workItemId, CancellationToken cancellationToken);
 
     Task<bool> LockOrganizationMemberAsync(
         Guid organizationId,

@@ -1,9 +1,11 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Organizations;
 using SecureFlow.Contracts.Projects;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
+using SecureFlow.Modules.WorkItems.Domain;
 using SecureFlow.SharedKernel;
 
 namespace SecureFlow.Modules.WorkItems.Application;
@@ -15,7 +17,10 @@ public static class AssignmentErrors
         "Atanabilir kullanıcı bulunamadı.");
 }
 
-public sealed class AssignmentHandler(IWorkItemsDbContext dbContext, IClock clock)
+public sealed class AssignmentHandler(
+    IWorkItemsDbContext dbContext,
+    IActivityWriter activityWriter,
+    IClock clock)
 {
     public Task<Result> AssignOtherAsync(
         Guid workItemId,
@@ -84,7 +89,22 @@ public sealed class AssignmentHandler(IWorkItemsDbContext dbContext, IClock cloc
             return Result.Failure(WorkItemErrors.Forbidden);
         }
 
-        workItem.Unassign(clock.UtcNow);
+        var previousAssigneeId = workItem.AssigneeId;
+        var now = clock.UtcNow;
+        if (workItem.Unassign(now))
+        {
+            activityWriter.Add(new ActivityWriteRequest(
+                workItem.OrganizationId,
+                workItem.ProjectId,
+                workItem.Id,
+                currentUserId,
+                ActivityTypes.WorkItemUnassigned,
+                new Dictionary<string, string?>
+                {
+                    ["previousAssigneeId"] = previousAssigneeId?.ToString(),
+                },
+                now));
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Result.Success();
@@ -143,7 +163,23 @@ public sealed class AssignmentHandler(IWorkItemsDbContext dbContext, IClock cloc
             return Result.Failure(AssignmentErrors.InvalidAssignee);
         }
 
-        workItem.Assign(assigneeId, clock.UtcNow);
+        var previousAssigneeId = workItem.AssigneeId;
+        var now = clock.UtcNow;
+        if (workItem.Assign(assigneeId, now))
+        {
+            activityWriter.Add(new ActivityWriteRequest(
+                workItem.OrganizationId,
+                workItem.ProjectId,
+                workItem.Id,
+                currentUserId,
+                ActivityTypes.WorkItemAssigned,
+                new Dictionary<string, string?>
+                {
+                    ["assigneeId"] = assigneeId.ToString(),
+                    ["previousAssigneeId"] = previousAssigneeId?.ToString(),
+                },
+                now));
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Result.Success();
@@ -182,33 +218,42 @@ public sealed class AssignmentHandler(IWorkItemsDbContext dbContext, IClock cloc
 
 public sealed class WorkItemOrganizationMembershipRemovalCleanup(
     IWorkItemsDbContext dbContext,
+    IActivityWriter activityWriter,
     IClock clock) : IOrganizationMembershipRemovalCleanup
 {
     public async Task RemoveActiveRelationshipsAsync(
         Guid organizationId,
         Guid userId,
+        Guid actorId,
         CancellationToken cancellationToken = default)
     {
+        // FOR UPDATE forces a concurrent assignment version to become visible or
+        // raises a serializable conflict; a snapshot-only SELECT could miss it.
         var workItems = await dbContext.WorkItems
-            .Where(item => item.OrganizationId == organizationId
-                && item.AssigneeId == userId
-                && item.ArchivedAt == null)
+            .FromSqlInterpolated(
+                $"""SELECT * FROM "WorkItems" WHERE "OrganizationId" = {organizationId} AND "AssigneeId" = {userId} AND "ArchivedAt" IS NULL FOR UPDATE""")
             .ToArrayAsync(cancellationToken);
+        var now = clock.UtcNow;
         foreach (var workItem in workItems)
         {
-            workItem.Unassign(clock.UtcNow);
+            if (workItem.Unassign(now))
+            {
+                AutomaticUnassignmentActivity.Add(activityWriter, workItem, actorId, userId, now);
+            }
         }
     }
 }
 
 public sealed class WorkItemProjectMembershipRemovalCleanup(
     IWorkItemsDbContext dbContext,
+    IActivityWriter activityWriter,
     IClock clock) : IProjectMembershipRemovalCleanup
 {
     public async Task RemoveActiveRelationshipsAsync(
         Guid organizationId,
         Guid projectId,
         Guid userId,
+        Guid actorId,
         CancellationToken cancellationToken = default)
     {
         var workItems = await dbContext.WorkItems
@@ -217,9 +262,34 @@ public sealed class WorkItemProjectMembershipRemovalCleanup(
                 && item.AssigneeId == userId
                 && item.ArchivedAt == null)
             .ToArrayAsync(cancellationToken);
+        var now = clock.UtcNow;
         foreach (var workItem in workItems)
         {
-            workItem.Unassign(clock.UtcNow);
+            if (workItem.Unassign(now))
+            {
+                AutomaticUnassignmentActivity.Add(activityWriter, workItem, actorId, userId, now);
+            }
         }
     }
+}
+
+internal static class AutomaticUnassignmentActivity
+{
+    public static void Add(
+        IActivityWriter activityWriter,
+        WorkItem workItem,
+        Guid actorId,
+        Guid previousAssigneeId,
+        DateTimeOffset occurredAt) =>
+        activityWriter.Add(new ActivityWriteRequest(
+            workItem.OrganizationId,
+            workItem.ProjectId,
+            workItem.Id,
+            actorId,
+            ActivityTypes.WorkItemUnassigned,
+            new Dictionary<string, string?>
+            {
+                ["previousAssigneeId"] = previousAssigneeId.ToString(),
+            },
+            occurredAt));
 }

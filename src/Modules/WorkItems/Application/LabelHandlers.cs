@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.Activity;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Application.Models;
 using SecureFlow.Modules.WorkItems.Domain;
@@ -15,7 +16,10 @@ public static class LabelErrors
     public static readonly Error DuplicateName = new("Labels.DuplicateName", "Bu Project içinde aynı isimli Label zaten var.");
 }
 
-public sealed class LabelHandlers(IWorkItemsDbContext dbContext, IClock clock)
+public sealed class LabelHandlers(
+    IWorkItemsDbContext dbContext,
+    IActivityWriter activityWriter,
+    IClock clock)
 {
     public Task<WorkItemScope?> FindScopeAsync(Guid labelId, CancellationToken cancellationToken) =>
         dbContext.Labels.AsNoTracking().Where(label => label.Id == labelId)
@@ -121,10 +125,39 @@ public sealed class LabelHandlers(IWorkItemsDbContext dbContext, IClock clock)
 
         var assignment = await dbContext.WorkItemLabels.SingleOrDefaultAsync(
             item => item.WorkItemId == workItemId && item.LabelId == labelId, cancellationToken);
+        var now = clock.UtcNow;
         if (assigned && assignment is null)
-            dbContext.WorkItemLabels.Add(WorkItemLabel.Create(workItem, label, userId, clock.UtcNow));
+        {
+            dbContext.WorkItemLabels.Add(WorkItemLabel.Create(workItem, label, userId, now));
+            activityWriter.Add(new ActivityWriteRequest(
+                workItem.OrganizationId,
+                workItem.ProjectId,
+                workItem.Id,
+                userId,
+                ActivityTypes.LabelAssigned,
+                new Dictionary<string, string?>
+                {
+                    ["labelId"] = label.Id.ToString(),
+                    ["labelName"] = label.Name,
+                },
+                now));
+        }
         else if (!assigned && assignment is not null)
+        {
             dbContext.WorkItemLabels.Remove(assignment);
+            activityWriter.Add(new ActivityWriteRequest(
+                workItem.OrganizationId,
+                workItem.ProjectId,
+                workItem.Id,
+                userId,
+                ActivityTypes.LabelRemoved,
+                new Dictionary<string, string?>
+                {
+                    ["labelId"] = label.Id.ToString(),
+                    ["labelName"] = label.Name,
+                },
+                now));
+        }
 
         // All label/work-item mutations serialize on their Project row. Repeated requests are no-ops.
         await dbContext.SaveChangesAsync(cancellationToken);

@@ -16,7 +16,9 @@ internal static class WorkItemErrorResult
                 or "WorkItems.ProjectArchived"
                 or "WorkItems.Archived"
                 or "WorkItems.NumberConflict"
-                or "WorkItems.NumberExhausted" => StatusCodes.Status409Conflict,
+                or "WorkItems.NumberExhausted"
+                or "Workflow.MissingConfiguration"
+                or "Workflow.InvalidWorkflowTransition" => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status400BadRequest,
         };
 

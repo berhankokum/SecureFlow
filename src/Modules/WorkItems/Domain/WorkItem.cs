@@ -20,6 +20,7 @@ public sealed class WorkItem : AggregateRoot
         string title,
         string? description,
         WorkItemPriority priority,
+        Guid workflowStateId,
         Guid reporterId,
         DateOnly? dueDate,
         DateTimeOffset createdAt)
@@ -32,6 +33,7 @@ public sealed class WorkItem : AggregateRoot
         Title = NormalizeTitle(title);
         Description = NormalizeDescription(description);
         Priority = priority;
+        WorkflowStateId = RequireId(workflowStateId, nameof(workflowStateId));
         ReporterId = RequireId(reporterId, nameof(reporterId));
         DueDate = dueDate;
         CreatedAt = createdAt;
@@ -51,6 +53,8 @@ public sealed class WorkItem : AggregateRoot
     public string? Description { get; private set; }
 
     public WorkItemPriority Priority { get; private set; }
+
+    public Guid WorkflowStateId { get; private set; }
 
     public Guid ReporterId { get; private set; }
 
@@ -74,6 +78,7 @@ public sealed class WorkItem : AggregateRoot
         string title,
         string? description,
         WorkItemPriority priority,
+        Guid workflowStateId,
         Guid reporterId,
         DateOnly? dueDate,
         DateOnly currentDate,
@@ -82,7 +87,7 @@ public sealed class WorkItem : AggregateRoot
         EnsureDueDateIsNotPast(dueDate, currentDate);
         return new WorkItem(
             Guid.NewGuid(), organizationId, projectId, number, type, title,
-            description, priority, reporterId, dueDate, createdAt);
+            description, priority, workflowStateId, reporterId, dueDate, createdAt);
     }
 
     public void Update(
@@ -144,6 +149,19 @@ public sealed class WorkItem : AggregateRoot
         AssigneeId = null;
         UpdatedAt = unassignedAt;
         return true;
+    }
+
+    public void Transition(WorkflowTransition transition, DateTimeOffset transitionedAt)
+    {
+        EnsureMutable();
+        ArgumentNullException.ThrowIfNull(transition);
+        if (transition.FromStateId != WorkflowStateId)
+        {
+            throw new DomainException("Geçiş mevcut workflow state için tanımlı değil.");
+        }
+
+        WorkflowStateId = transition.ToStateId;
+        UpdatedAt = transitionedAt;
     }
 
     private static Guid RequireId(Guid value, string parameterName) =>

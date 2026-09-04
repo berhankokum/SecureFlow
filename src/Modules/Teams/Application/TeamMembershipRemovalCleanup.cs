@@ -10,6 +10,7 @@ public sealed class TeamMembershipRemovalCleanup(ITeamsDbContext dbContext)
     public async Task RemoveActiveRelationshipsAsync(
         Guid organizationId,
         Guid userId,
+        Guid actorId,
         CancellationToken cancellationToken = default)
     {
         var memberships = await dbContext.TeamMembers
