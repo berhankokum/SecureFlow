@@ -17,6 +17,7 @@ using SecureFlow.Modules.Projects;
 using SecureFlow.Modules.WorkItems;
 using SecureFlow.Modules.Collaboration;
 using SecureFlow.Modules.Notifications;
+using SecureFlow.Modules.Files;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -77,6 +78,7 @@ try
     builder.Services.AddWorkItemsModule<SecureFlowDbContext>();
     builder.Services.AddCollaborationModule<SecureFlowDbContext>();
     builder.Services.AddNotificationsModule<SecureFlowDbContext>();
+    builder.Services.AddFilesModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddAuthorization();
 
     builder.Services.AddRateLimiter(options =>
@@ -94,6 +96,22 @@ try
                 {
                     AutoReplenishment = true,
                     PermitLimit = 20,
+                    QueueLimit = 0,
+                    Window = TimeSpan.FromMinutes(1),
+                });
+        });
+        options.AddPolicy("file-uploads", context =>
+        {
+            var partitionKey = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "anonymous";
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey,
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 10,
                     QueueLimit = 0,
                     Window = TimeSpan.FromMinutes(1),
                 });
@@ -158,7 +176,7 @@ try
         Predicate = _ => false
     });
 
-    // Readiness: critical dependencies (PostgreSQL, and later Redis/Object Storage) must be reachable.
+    // Readiness: critical dependencies (PostgreSQL and Object Storage; Redis when introduced) must be reachable.
     app.MapHealthChecks("/health/ready", new HealthCheckOptions
     {
         Predicate = check => check.Tags.Contains("ready")

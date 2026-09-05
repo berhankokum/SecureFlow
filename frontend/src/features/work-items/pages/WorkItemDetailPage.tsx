@@ -12,6 +12,7 @@ import { WorkItemForm } from "../components/WorkItemForm";
 import { WorkItemAssignmentSection } from "../components/WorkItemAssignmentSection";
 import { useArchiveWorkItem, useUpdateWorkItem, useWorkItem, useWorkItems } from "../hooks/useWorkItems";
 import { useRealtimeProject } from "@/features/realtime/useRealtimeProject";
+import { WorkItemAttachmentsSection } from "@/features/attachments/components/WorkItemAttachmentsSection";
 
 export function WorkItemDetailPage() {
   const { workItemKey = "" } = useParams();
@@ -55,6 +56,7 @@ export function WorkItemDetailPage() {
     {projectArchived ? <p className="mt-5 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">Project archived olduğu için WorkItem salt okunurdur.</p> : isArchived ? <p className="mt-5 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">Archived WorkItem salt okunurdur.</p> : null}
     <WorkItemAssignmentSection workItem={workItem} project={projectQuery.data} />
     <WorkItemLabelsSection workItem={workItem} projectArchived={projectArchived} />
+    <WorkItemAttachmentsSection workItem={workItem} projectArchived={projectArchived} />
     <WorkItemCollaborationSection workItem={workItem} projectArchived={projectArchived} mentionCandidates={mentionCandidates} />
     {actionError ? <p className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p> : null}
     {editing ? <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5"><WorkItemForm mode="update" initialValues={{ type: workItem.type, title: workItem.title, description: workItem.description ?? "", priority: workItem.priority, dueDate: workItem.dueDate ?? "" }} onCancel={() => setEditing(false)} onSubmit={async values => { await updateMutation.mutateAsync(toWorkItemPayload(values)); setEditing(false); }} /></div> : null}

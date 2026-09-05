@@ -216,6 +216,67 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.ToTable("Mentions", (string)null);
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.Files.Domain.Attachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UploadedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Attachments_StorageKey");
+
+                    b.HasIndex("UploadedBy");
+
+                    b.HasIndex("OrganizationId", "UploadedBy")
+                        .HasDatabaseName("IX_Attachments_OrganizationId_UploadedBy");
+
+                    b.HasIndex("WorkItemId", "OrganizationId");
+
+                    b.HasIndex("WorkItemId", "UploadedAt")
+                        .HasDatabaseName("IX_Attachments_WorkItemId_UploadedAt");
+
+                    b.ToTable("Attachments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Attachments_Size_Positive", "\"Size\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Identity.Domain.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -975,6 +1036,22 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.HasOne("SecureFlow.Modules.Collaboration.Domain.Comment", null)
                         .WithMany()
                         .HasForeignKey("CommentId", "OrganizationId")
+                        .HasPrincipalKey("Id", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Files.Domain.Attachment", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFlow.Modules.WorkItems.Domain.WorkItem", null)
+                        .WithMany()
+                        .HasForeignKey("WorkItemId", "OrganizationId")
                         .HasPrincipalKey("Id", "OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();

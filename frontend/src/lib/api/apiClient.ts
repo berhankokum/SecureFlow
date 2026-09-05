@@ -20,6 +20,20 @@ export async function refreshCsrfToken(): Promise<void> {
   }
 }
 
+async function getCsrfToken(): Promise<string> {
+  let csrfToken = readCookie("XSRF-TOKEN");
+  if (!csrfToken) {
+    await refreshCsrfToken();
+    csrfToken = readCookie("XSRF-TOKEN");
+  }
+
+  if (!csrfToken) {
+    throw new ApiError(0, "Güvenli istek doğrulaması başlatılamadı.");
+  }
+
+  return csrfToken;
+}
+
 interface RequestOptions {
   method?: string;
   body?: unknown;
@@ -34,17 +48,7 @@ async function request<TResponse>(path: string, options: RequestOptions = {}): P
   }
 
   if (!SAFE_METHODS.has(method)) {
-    let csrfToken = readCookie("XSRF-TOKEN");
-    if (!csrfToken) {
-      await refreshCsrfToken();
-      csrfToken = readCookie("XSRF-TOKEN");
-    }
-
-    if (csrfToken) {
-      headers.set("X-CSRF-TOKEN", csrfToken);
-    } else {
-      throw new ApiError(0, "Güvenli istek doğrulaması başlatılamadı.");
-    }
+    headers.set("X-CSRF-TOKEN", await getCsrfToken());
   }
 
   const response = await fetch(`${env.apiBaseUrl}${path}`, {
@@ -65,12 +69,74 @@ async function request<TResponse>(path: string, options: RequestOptions = {}): P
   return (await response.json()) as TResponse;
 }
 
+async function upload<TResponse>(
+  path: string,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<TResponse> {
+  const csrfToken = await getCsrfToken();
+  return new Promise<TResponse>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${env.apiBaseUrl}${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("X-CSRF-TOKEN", csrfToken);
+    xhr.upload.onprogress = event => {
+      if (event.lengthComputable) {
+        onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Dosya yükleme bağlantısı kurulamadı."));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as TResponse);
+        } catch {
+          reject(new ApiError(xhr.status, "Sunucudan geçersiz yükleme yanıtı alındı."));
+        }
+        return;
+      }
+
+      if (xhr.status === 0) {
+        reject(new ApiError(0, "Dosya yükleme bağlantısı kurulamadı."));
+        return;
+      }
+
+      void parseErrorResponse(new Response(xhr.responseText, {
+        status: xhr.status,
+        headers: { "Content-Type": xhr.getResponseHeader("Content-Type") ?? "application/problem+json" },
+      })).then(reject);
+    };
+    const form = new FormData();
+    form.append("file", file, file.name);
+    xhr.send(form);
+  });
+}
+
+async function download(path: string, fileName: string): Promise<void> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, { credentials: "include" });
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+
+  const objectUrl = URL.createObjectURL(await response.blob());
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    anchor.click();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body }),
   put: <T>(path: string, body: unknown) => request<T>(path, { method: "PUT", body }),
   patch: <T>(path: string, body: unknown) => request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload,
+  download,
 };
 
 export { ApiError };

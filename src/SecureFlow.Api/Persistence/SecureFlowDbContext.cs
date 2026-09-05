@@ -15,6 +15,8 @@ using SecureFlow.Modules.Collaboration.Application.Abstractions;
 using SecureFlow.Modules.Collaboration.Domain;
 using SecureFlow.Modules.Notifications.Application.Abstractions;
 using SecureFlow.Modules.Notifications.Domain;
+using SecureFlow.Modules.Files.Application.Abstractions;
+using SecureFlow.Modules.Files.Domain;
 
 namespace SecureFlow.Api.Persistence;
 
@@ -26,7 +28,8 @@ namespace SecureFlow.Api.Persistence;
 /// </summary>
 public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options)
     : IdentityUserContext<ApplicationUser, Guid>(options), IOrganizationsDbContext, ITeamsDbContext,
-        IProjectsDbContext, IWorkItemsDbContext, ICollaborationDbContext, INotificationsDbContext
+        IProjectsDbContext, IWorkItemsDbContext, ICollaborationDbContext, INotificationsDbContext,
+        IFilesDbContext
 {
     public DbSet<Organization> Organizations => Set<Organization>();
 
@@ -63,6 +66,8 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+
+    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     public async Task<PermissionRole?> GetActiveOrganizationRoleAsync(
         Guid organizationId,
@@ -327,6 +332,37 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .Distinct()
             .ToArrayAsync(cancellationToken);
 
+    public Task<FileResourceScope?> FindWorkItemFileScopeAsync(
+        Guid workItemId,
+        CancellationToken cancellationToken) =>
+        WorkItems
+            .AsNoTracking()
+            .Where(workItem => workItem.Id == workItemId)
+            .Select(workItem => new FileResourceScope(
+                workItem.Id,
+                workItem.ProjectId,
+                workItem.OrganizationId))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<FileAccessContext?> GetFileAccessAsync(
+        Guid workItemId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var access = await GetCollaborationAccessAsync(workItemId, userId, cancellationToken);
+        return access is null
+            ? null
+            : new FileAccessContext(
+                access.WorkItemId,
+                access.ProjectId,
+                access.OrganizationId,
+                access.IsWorkItemArchived,
+                access.IsProjectArchived,
+                access.HasProjectAccess,
+                access.CanModerateComments,
+                access.Permissions);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -337,6 +373,7 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(WorkItem).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Comment).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Notification).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Attachment).Assembly);
 
         // Cross-module user references composition root'ta kurulur; domain modülleri
         // birbirlerinin assembly'lerine bağımlı hale getirilmez.
@@ -495,6 +532,19 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .HasOne<ApplicationUser>()
             .WithOne()
             .HasForeignKey<NotificationPreference>(preference => preference.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Attachment>()
+            .HasOne<WorkItem>()
+            .WithMany()
+            .HasForeignKey(attachment => new { attachment.WorkItemId, attachment.OrganizationId })
+            .HasPrincipalKey(workItem => new { WorkItemId = workItem.Id, workItem.OrganizationId })
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Attachment>()
+            .HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(attachment => attachment.UploadedBy)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ActivityEvent>()
