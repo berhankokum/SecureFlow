@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Activity;
+using SecureFlow.Contracts.Realtime;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Application.Models;
 using SecureFlow.Modules.WorkItems.Domain;
@@ -19,6 +20,7 @@ public static class LabelErrors
 public sealed class LabelHandlers(
     IWorkItemsDbContext dbContext,
     IActivityWriter activityWriter,
+    IRealtimePublisher realtimePublisher,
     IClock clock)
 {
     public Task<WorkItemScope?> FindScopeAsync(Guid labelId, CancellationToken cancellationToken) =>
@@ -126,10 +128,11 @@ public sealed class LabelHandlers(
         var assignment = await dbContext.WorkItemLabels.SingleOrDefaultAsync(
             item => item.WorkItemId == workItemId && item.LabelId == labelId, cancellationToken);
         var now = clock.UtcNow;
+        Guid? activityId = null;
         if (assigned && assignment is null)
         {
             dbContext.WorkItemLabels.Add(WorkItemLabel.Create(workItem, label, userId, now));
-            activityWriter.Add(new ActivityWriteRequest(
+            activityId = activityWriter.Add(new ActivityWriteRequest(
                 workItem.OrganizationId,
                 workItem.ProjectId,
                 workItem.Id,
@@ -145,7 +148,7 @@ public sealed class LabelHandlers(
         else if (!assigned && assignment is not null)
         {
             dbContext.WorkItemLabels.Remove(assignment);
-            activityWriter.Add(new ActivityWriteRequest(
+            activityId = activityWriter.Add(new ActivityWriteRequest(
                 workItem.OrganizationId,
                 workItem.ProjectId,
                 workItem.Id,
@@ -162,6 +165,17 @@ public sealed class LabelHandlers(
         // All label/work-item mutations serialize on their Project row. Repeated requests are no-ops.
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        if (activityId is { } labelEventId)
+        {
+            await realtimePublisher.PublishWorkItemUpdatedAsync(
+                new WorkItemUpdatedRealtimeEvent(
+                    labelEventId,
+                    workItem.OrganizationId,
+                    workItem.ProjectId,
+                    workItem.Id,
+                    now),
+                cancellationToken);
+        }
         return Result.Success();
     }
 

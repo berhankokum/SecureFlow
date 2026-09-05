@@ -3,6 +3,7 @@ using Npgsql;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Identity;
 using SecureFlow.Contracts.Projects;
+using SecureFlow.Contracts.Realtime;
 using SecureFlow.Modules.Projects.Application.Abstractions;
 using SecureFlow.Modules.Projects.Application.Authorization;
 using SecureFlow.Modules.Projects.Application.Models;
@@ -366,7 +367,8 @@ public sealed class ChangeProjectMemberRoleHandler(IProjectsDbContext dbContext)
 
 public sealed class RemoveProjectMemberHandler(
     IProjectsDbContext dbContext,
-    IEnumerable<IProjectMembershipRemovalCleanup> removalCleanups)
+    IEnumerable<IProjectMembershipRemovalCleanup> removalCleanups,
+    IRealtimePublicationBuffer realtimeBuffer)
 {
     public async Task<Result> HandleAsync(
         Guid projectId,
@@ -421,6 +423,7 @@ public sealed class RemoveProjectMemberHandler(
         {
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await realtimeBuffer.FlushAsync(cancellationToken);
             return Result.Success();
         }
         catch (Exception exception) when (IsSerializationFailure(exception))

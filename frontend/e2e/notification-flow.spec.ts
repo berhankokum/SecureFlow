@@ -40,7 +40,9 @@ test("notification center reads user-owned items and stores the email preference
   const inApp = page.getByRole("checkbox", { name: "Uygulama içi bildirimler" });
   await expect(inApp).toBeChecked();
   await expect(inApp).toBeDisabled();
-  await page.getByRole("checkbox", { name: "E-posta bildirimleri" }).check();
+  const emailPreference = page.getByRole("checkbox", { name: "E-posta bildirimleri" });
+  await emailPreference.click();
+  await expect(emailPreference).toBeChecked();
   expect(emailEnabled).toBe(true);
   expect(mutations).toEqual([
     { path: "/api/v1/notifications/notification/read", csrf: "e2e-csrf-token" },

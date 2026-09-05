@@ -5,6 +5,7 @@ using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Organizations;
 using SecureFlow.Contracts.Projects;
 using SecureFlow.Contracts.Notifications;
+using SecureFlow.Contracts.Realtime;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Domain;
 using SecureFlow.SharedKernel;
@@ -22,6 +23,7 @@ public sealed class AssignmentHandler(
     IWorkItemsDbContext dbContext,
     IActivityWriter activityWriter,
     INotificationWriter notificationWriter,
+    IRealtimePublisher realtimePublisher,
     IClock clock)
 {
     public Task<Result> AssignOtherAsync(
@@ -93,9 +95,10 @@ public sealed class AssignmentHandler(
 
         var previousAssigneeId = workItem.AssigneeId;
         var now = clock.UtcNow;
+        Guid? activityId = null;
         if (workItem.Unassign(now))
         {
-            activityWriter.Add(new ActivityWriteRequest(
+            activityId = activityWriter.Add(new ActivityWriteRequest(
                 workItem.OrganizationId,
                 workItem.ProjectId,
                 workItem.Id,
@@ -109,6 +112,17 @@ public sealed class AssignmentHandler(
         }
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        if (activityId is { } unassignmentEventId)
+        {
+            await realtimePublisher.PublishWorkItemUpdatedAsync(
+                new WorkItemUpdatedRealtimeEvent(
+                    unassignmentEventId,
+                    workItem.OrganizationId,
+                    workItem.ProjectId,
+                    workItem.Id,
+                    now),
+                cancellationToken);
+        }
         return Result.Success();
     }
 
@@ -167,9 +181,11 @@ public sealed class AssignmentHandler(
 
         var previousAssigneeId = workItem.AssigneeId;
         var now = clock.UtcNow;
+        Guid? activityId = null;
+        Guid? notificationId = null;
         if (workItem.Assign(assigneeId, now))
         {
-            var activityId = activityWriter.Add(new ActivityWriteRequest(
+            activityId = activityWriter.Add(new ActivityWriteRequest(
                 workItem.OrganizationId,
                 workItem.ProjectId,
                 workItem.Id,
@@ -183,7 +199,7 @@ public sealed class AssignmentHandler(
                 now));
             if (assigneeId != currentUserId)
             {
-                notificationWriter.Add(new NotificationWriteRequest(
+                notificationId = notificationWriter.Add(new NotificationWriteRequest(
                     workItem.OrganizationId,
                     assigneeId,
                     NotificationTypes.WorkItemAssigned,
@@ -191,12 +207,31 @@ public sealed class AssignmentHandler(
                     $"{projectResult.Value.ProjectKey}-{workItem.Number} size atandı.",
                     NotificationResourceTypes.WorkItem,
                     workItem.Id,
-                    activityId,
+                    activityId.Value,
                     now));
             }
         }
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        if (activityId is { } assignmentEventId)
+        {
+            await realtimePublisher.PublishWorkItemUpdatedAsync(
+                new WorkItemUpdatedRealtimeEvent(
+                    assignmentEventId,
+                    workItem.OrganizationId,
+                    workItem.ProjectId,
+                    workItem.Id,
+                    now),
+                cancellationToken);
+        }
+
+        if (notificationId is { } createdNotificationId)
+        {
+            await realtimePublisher.PublishNotificationCreatedAsync(
+                assigneeId,
+                new NotificationCreatedRealtimeEvent(createdNotificationId, createdNotificationId, now),
+                cancellationToken);
+        }
         return Result.Success();
     }
 
@@ -234,6 +269,7 @@ public sealed class AssignmentHandler(
 public sealed class WorkItemOrganizationMembershipRemovalCleanup(
     IWorkItemsDbContext dbContext,
     IActivityWriter activityWriter,
+    IRealtimePublicationBuffer realtimeBuffer,
     IClock clock) : IOrganizationMembershipRemovalCleanup
 {
     public async Task RemoveActiveRelationshipsAsync(
@@ -253,7 +289,14 @@ public sealed class WorkItemOrganizationMembershipRemovalCleanup(
         {
             if (workItem.Unassign(now))
             {
-                AutomaticUnassignmentActivity.Add(activityWriter, workItem, actorId, userId, now);
+                var activityId = AutomaticUnassignmentActivity.Add(
+                    activityWriter, workItem, actorId, userId, now);
+                realtimeBuffer.Enqueue(new WorkItemUpdatedRealtimeEvent(
+                    activityId,
+                    workItem.OrganizationId,
+                    workItem.ProjectId,
+                    workItem.Id,
+                    now));
             }
         }
     }
@@ -262,6 +305,7 @@ public sealed class WorkItemOrganizationMembershipRemovalCleanup(
 public sealed class WorkItemProjectMembershipRemovalCleanup(
     IWorkItemsDbContext dbContext,
     IActivityWriter activityWriter,
+    IRealtimePublicationBuffer realtimeBuffer,
     IClock clock) : IProjectMembershipRemovalCleanup
 {
     public async Task RemoveActiveRelationshipsAsync(
@@ -282,7 +326,14 @@ public sealed class WorkItemProjectMembershipRemovalCleanup(
         {
             if (workItem.Unassign(now))
             {
-                AutomaticUnassignmentActivity.Add(activityWriter, workItem, actorId, userId, now);
+                var activityId = AutomaticUnassignmentActivity.Add(
+                    activityWriter, workItem, actorId, userId, now);
+                realtimeBuffer.Enqueue(new WorkItemUpdatedRealtimeEvent(
+                    activityId,
+                    workItem.OrganizationId,
+                    workItem.ProjectId,
+                    workItem.Id,
+                    now));
             }
         }
     }
@@ -290,7 +341,7 @@ public sealed class WorkItemProjectMembershipRemovalCleanup(
 
 internal static class AutomaticUnassignmentActivity
 {
-    public static void Add(
+    public static Guid Add(
         IActivityWriter activityWriter,
         WorkItem workItem,
         Guid actorId,

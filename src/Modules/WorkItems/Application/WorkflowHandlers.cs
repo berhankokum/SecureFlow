@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Notifications;
+using SecureFlow.Contracts.Realtime;
 using SecureFlow.Modules.WorkItems.Application.Abstractions;
 using SecureFlow.Modules.WorkItems.Application.Models;
 using SecureFlow.SharedKernel;
@@ -23,6 +24,7 @@ public sealed class WorkflowHandlers(
     IWorkItemsDbContext dbContext,
     IActivityWriter activityWriter,
     INotificationWriter notificationWriter,
+    IRealtimePublisher realtimePublisher,
     IClock clock)
 {
     public async Task<Result<WorkflowSummary>> GetAsync(
@@ -180,6 +182,7 @@ public sealed class WorkflowHandlers(
             .OfType<Guid>()
             .Distinct()
             .Where(userId => userId != currentUserId);
+        var createdNotifications = new List<(Guid RecipientId, Guid NotificationId)>();
         foreach (var recipientId in recipients)
         {
             if (!await dbContext.CanUserAccessProjectAsync(
@@ -191,7 +194,7 @@ public sealed class WorkflowHandlers(
                 continue;
             }
 
-            notificationWriter.Add(new NotificationWriteRequest(
+            var notificationId = notificationWriter.Add(new NotificationWriteRequest(
                 workItem.OrganizationId,
                 recipientId,
                 NotificationTypes.WorkItemStatusChanged,
@@ -201,9 +204,28 @@ public sealed class WorkflowHandlers(
                 workItem.Id,
                 activityId,
                 now));
+            createdNotifications.Add((recipientId, notificationId));
         }
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        await realtimePublisher.PublishWorkItemUpdatedAsync(
+            new WorkItemUpdatedRealtimeEvent(
+                activityId,
+                workItem.OrganizationId,
+                workItem.ProjectId,
+                workItem.Id,
+                now),
+            cancellationToken);
+        foreach (var notification in createdNotifications)
+        {
+            await realtimePublisher.PublishNotificationCreatedAsync(
+                notification.RecipientId,
+                new NotificationCreatedRealtimeEvent(
+                    notification.NotificationId,
+                    notification.NotificationId,
+                    now),
+                cancellationToken);
+        }
         return Result.Success();
     }
 

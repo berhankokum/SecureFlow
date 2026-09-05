@@ -8,6 +8,8 @@ using System.Threading.RateLimiting;
 using SecureFlow.Api.Configuration;
 using SecureFlow.Api.HealthChecks;
 using SecureFlow.Api.Persistence;
+using SecureFlow.Api.Realtime;
+using SecureFlow.Contracts.Realtime;
 using SecureFlow.Modules.Identity;
 using SecureFlow.Modules.Organizations;
 using SecureFlow.Modules.Teams;
@@ -44,6 +46,14 @@ try
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails();
+    builder.Services.AddSignalR(options =>
+    {
+        options.EnableDetailedErrors = false;
+        options.MaximumReceiveMessageSize = 8 * 1024;
+        options.MaximumParallelInvocationsPerClient = 1;
+    });
+    builder.Services.AddSingleton<IRealtimePublisher, SignalRRealtimePublisher>();
+    builder.Services.AddScoped<IRealtimePublicationBuffer, RealtimePublicationBuffer>();
 
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
@@ -126,6 +136,7 @@ try
     app.UseAntiforgery();
 
     app.MapControllers();
+    app.MapHub<RealtimeHub>("/hubs/realtime").RequireAuthorization();
 
     // SecureFlow-Final.md §7: SPA, X-CSRF-TOKEN header'ında geri göndereceği token'ı buradan alır.
     app.MapGet("/api/v1/antiforgery/token", (IAntiforgery antiforgery, HttpContext context) =>

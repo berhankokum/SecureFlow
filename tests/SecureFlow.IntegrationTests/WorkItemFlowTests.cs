@@ -16,7 +16,11 @@ namespace SecureFlow.IntegrationTests;
 [Collection(IntegrationTestCollection.Name)]
 public partial class WorkItemFlowTests(AuthWebApplicationFactory factory)
 {
-    private sealed record AuthenticatedUser(HttpClient Client, Guid UserId, string Email);
+    private sealed record AuthenticatedUser(
+        HttpClient Client,
+        Guid UserId,
+        string Email,
+        string AuthCookie);
 
     [Fact]
     public async Task Lifecycle_derives_server_owned_fields_and_never_reuses_numbers()
@@ -238,11 +242,14 @@ public partial class WorkItemFlowTests(AuthWebApplicationFactory factory)
                 (await client.PostAsJsonAsync("/api/v1/auth/confirm-email", new { userId, code })).StatusCode);
         }
 
-        Assert.Equal(HttpStatusCode.NoContent,
-            (await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password })).StatusCode);
+        var loginResponse = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
+        Assert.Equal(HttpStatusCode.NoContent, loginResponse.StatusCode);
+        var authCookie = loginResponse.Headers.GetValues("Set-Cookie")
+            .First(value => value.StartsWith("SecureFlow.Auth=", StringComparison.Ordinal))
+            .Split(';', 2)[0];
         client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
         client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", await GetCsrfTokenAsync(client));
-        return new AuthenticatedUser(client, userId, email);
+        return new AuthenticatedUser(client, userId, email, authCookie);
     }
 
     private static object ValidWorkItem(string title) => new
