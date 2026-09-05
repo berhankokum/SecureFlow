@@ -110,6 +110,7 @@ function activityText(activity: ActivityEvent): string {
     case "LABEL_ASSIGNED": return `${metadata.labelName ?? "Label"} etiketi eklendi`;
     case "LABEL_REMOVED": return `${metadata.labelName ?? "Label"} etiketi kaldırıldı`;
     case "COMMENT_CREATED": return "yorum ekledi";
+    case "ATTACHMENT_UPLOADED": return `${metadata.fileName ?? "Bir dosya"} attachment'ını yükledi`;
     default: return String(activity.type).replaceAll("_", " ").toLocaleLowerCase("tr-TR");
   }
 }

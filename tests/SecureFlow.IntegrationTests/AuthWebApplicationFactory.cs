@@ -8,6 +8,8 @@ using Microsoft.Extensions.Hosting;
 using SecureFlow.Contracts.Email;
 using SecureFlow.Api.Persistence;
 using SecureFlow.Modules.Identity.Infrastructure.Email;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Containers;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -27,6 +29,16 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
         .WithPassword("secureflow_tests")
         .Build();
 
+    private readonly IContainer _objectStorage = new ContainerBuilder(
+            "minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e")
+        .WithEnvironment("MINIO_ROOT_USER", "secureflow_tests")
+        .WithEnvironment("MINIO_ROOT_PASSWORD", "secureflow_tests_secret")
+        .WithCommand("server", "/data", "--console-address", ":9001")
+        .WithPortBinding(9000, true)
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request =>
+            request.ForPort(9000).ForPath("/minio/health/ready")))
+        .Build();
+
     public HttpClient CreateSecureClient() => CreateClient(new WebApplicationFactoryClientOptions
     {
         BaseAddress = new Uri("https://localhost"),
@@ -34,14 +46,24 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
         HandleCookies = true,
     });
 
-    async Task IAsyncLifetime.InitializeAsync() => await _postgres.StartAsync();
+    async Task IAsyncLifetime.InitializeAsync() =>
+        await Task.WhenAll(_postgres.StartAsync(), _objectStorage.StartAsync());
 
-    async Task IAsyncLifetime.DisposeAsync() => await _postgres.DisposeAsync();
+    async Task IAsyncLifetime.DisposeAsync() =>
+        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _objectStorage.DisposeAsync().AsTask());
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
+        builder.UseSetting(
+            "ObjectStorage:ServiceUrl",
+            $"http://{_objectStorage.Hostname}:{_objectStorage.GetMappedPublicPort(9000)}");
+        builder.UseSetting("ObjectStorage:AccessKey", "secureflow_tests");
+        builder.UseSetting("ObjectStorage:SecretKey", "secureflow_tests_secret");
+        builder.UseSetting("ObjectStorage:BucketName", "secureflow-attachments-tests");
+        builder.UseSetting("ObjectStorage:Region", "us-east-1");
+        builder.UseSetting("ObjectStorage:CreateBucketIfMissing", "true");
 
         builder.ConfigureServices(services =>
         {

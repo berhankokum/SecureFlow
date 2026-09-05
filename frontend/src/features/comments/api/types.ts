@@ -30,7 +30,8 @@ export type ActivityType =
   | "WORK_ITEM_TRANSITIONED"
   | "LABEL_ASSIGNED"
   | "LABEL_REMOVED"
-  | "COMMENT_CREATED";
+  | "COMMENT_CREATED"
+  | "ATTACHMENT_UPLOADED";
 
 export interface ActivityEvent {
   id: string;

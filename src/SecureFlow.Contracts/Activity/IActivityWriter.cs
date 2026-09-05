@@ -9,6 +9,7 @@ public static class ActivityTypes
     public const string LabelAssigned = "LABEL_ASSIGNED";
     public const string LabelRemoved = "LABEL_REMOVED";
     public const string CommentCreated = "COMMENT_CREATED";
+    public const string AttachmentUploaded = "ATTACHMENT_UPLOADED";
 }
 
 public sealed record ActivityWriteRequest(
