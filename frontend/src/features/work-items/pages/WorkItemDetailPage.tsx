@@ -11,6 +11,7 @@ import { toWorkItemPayload } from "../api/toWorkItemPayload";
 import { WorkItemForm } from "../components/WorkItemForm";
 import { WorkItemAssignmentSection } from "../components/WorkItemAssignmentSection";
 import { useArchiveWorkItem, useUpdateWorkItem, useWorkItem, useWorkItems } from "../hooks/useWorkItems";
+import { useRealtimeProject } from "@/features/realtime/useRealtimeProject";
 
 export function WorkItemDetailPage() {
   const { workItemKey = "" } = useParams();
@@ -18,6 +19,7 @@ export function WorkItemDetailPage() {
   const projectKey = workItemKey.slice(0, workItemKey.lastIndexOf("-")).toUpperCase();
   const projectsQuery = useProjects(organization.id);
   const project = projectsQuery.data?.find(item => item.key === projectKey);
+  useRealtimeProject(project?.id ?? "");
   const projectQuery = useProject(project?.id ?? "");
   const membersQuery = useMembers(organization.id);
   const workItemsQuery = useWorkItems(project?.id ?? "");

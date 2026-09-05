@@ -6,6 +6,7 @@ using SecureFlow.Modules.Organizations.Application.Concurrency;
 using SecureFlow.Modules.Organizations.Domain;
 using SecureFlow.SharedKernel;
 using SecureFlow.Contracts.Organizations;
+using SecureFlow.Contracts.Realtime;
 
 namespace SecureFlow.Modules.Organizations.Application.Members;
 
@@ -17,7 +18,8 @@ public sealed record RemoveMemberCommand(
 public sealed class RemoveMemberHandler(
     IOrganizationsDbContext dbContext,
     IClock clock,
-    IEnumerable<IOrganizationMembershipRemovalCleanup> removalCleanups)
+    IEnumerable<IOrganizationMembershipRemovalCleanup> removalCleanups,
+    IRealtimePublicationBuffer realtimeBuffer)
 {
     public async Task<Result> HandleAsync(
         RemoveMemberCommand command,
@@ -116,6 +118,7 @@ public sealed class RemoveMemberHandler(
         // assignments while preserving archived historical assignment data.
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        await realtimeBuffer.FlushAsync(cancellationToken);
 
         return Result.Success();
     }

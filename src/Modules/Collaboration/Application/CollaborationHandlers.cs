@@ -6,6 +6,7 @@ using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Identity;
 using SecureFlow.Contracts.Notifications;
+using SecureFlow.Contracts.Realtime;
 using SecureFlow.Modules.Collaboration.Application.Abstractions;
 using SecureFlow.Modules.Collaboration.Application.Models;
 using SecureFlow.Modules.Collaboration.Domain;
@@ -52,6 +53,7 @@ public sealed class CommentHandlers(
     IUserDirectory userDirectory,
     IActivityWriter activityWriter,
     INotificationWriter notificationWriter,
+    IRealtimePublisher realtimePublisher,
     IClock clock)
 {
     private const int MentionLimit = 20;
@@ -130,7 +132,7 @@ public sealed class CommentHandlers(
             command.Content,
             now);
         dbContext.Comments.Add(comment);
-        activityWriter.Add(new ActivityWriteRequest(
+        var activityId = activityWriter.Add(new ActivityWriteRequest(
             accessResult.Value.OrganizationId,
             accessResult.Value.ProjectId,
             command.WorkItemId,
@@ -138,22 +140,35 @@ public sealed class CommentHandlers(
             ActivityTypes.CommentCreated,
             new Dictionary<string, string?> { ["commentId"] = comment.Id.ToString() },
             now));
+        var createdNotifications = new List<(Guid RecipientId, Guid NotificationId)>();
         AddMentionNotifications(
             comment,
             accessResult.Value,
             command.AuthorId,
             mentionResult.Value.Selected,
             [],
-            now);
+            now,
+            createdNotifications);
         AddCommentNotifications(
             comment,
             accessResult.Value,
             command.AuthorId,
             mentionResult.Value,
-            now);
+            now,
+            createdNotifications);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        await realtimePublisher.PublishCommentCreatedAsync(
+            new CommentCreatedRealtimeEvent(
+                activityId,
+                comment.OrganizationId,
+                accessResult.Value.ProjectId,
+                comment.WorkItemId,
+                comment.Id,
+                now),
+            cancellationToken);
+        await PublishNotificationsAsync(createdNotifications, now, cancellationToken);
         var author = await userDirectory.FindByIdAsync(command.AuthorId, cancellationToken);
         return Result.Success(ToSummary(
             comment,
@@ -227,15 +242,18 @@ public sealed class CommentHandlers(
             .ToArrayAsync(cancellationToken);
         var now = clock.UtcNow;
         comment.Update(command.Content, now);
+        var createdNotifications = new List<(Guid RecipientId, Guid NotificationId)>();
         AddMentionNotifications(
             comment,
             accessResult.Value,
             command.CurrentUserId,
             mentionResult.Value.Selected,
             existingMentionUserIds,
-            now);
+            now,
+            createdNotifications);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        await PublishNotificationsAsync(createdNotifications, now, cancellationToken);
         return Result.Success();
     }
 
@@ -454,7 +472,8 @@ public sealed class CommentHandlers(
         Guid actorId,
         IReadOnlyDictionary<Guid, string> selectedMentions,
         IReadOnlyCollection<Guid> existingMentionUserIds,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        ICollection<(Guid RecipientId, Guid NotificationId)> createdNotifications)
     {
         var existing = existingMentionUserIds.ToHashSet();
         foreach (var mentionedUserId in selectedMentions.Keys.Where(id => !existing.Contains(id)))
@@ -466,7 +485,7 @@ public sealed class CommentHandlers(
                 continue;
             }
 
-            notificationWriter.Add(new NotificationWriteRequest(
+            var notificationId = notificationWriter.Add(new NotificationWriteRequest(
                 access.OrganizationId,
                 mentionedUserId,
                 NotificationTypes.Mentioned,
@@ -476,6 +495,7 @@ public sealed class CommentHandlers(
                 access.WorkItemId,
                 mention.Id,
                 now));
+            createdNotifications.Add((mentionedUserId, notificationId));
         }
     }
 
@@ -484,7 +504,8 @@ public sealed class CommentHandlers(
         CollaborationAccessContext access,
         Guid actorId,
         MentionResolution mentions,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        ICollection<(Guid RecipientId, Guid NotificationId)> createdNotifications)
     {
         var mentionedUserIds = mentions.Selected.Keys.ToHashSet();
         var recipients = new Guid?[] { access.ReporterId, access.AssigneeId }
@@ -495,7 +516,7 @@ public sealed class CommentHandlers(
                 && mentions.Candidates.ContainsKey(userId));
         foreach (var recipientId in recipients)
         {
-            notificationWriter.Add(new NotificationWriteRequest(
+            var notificationId = notificationWriter.Add(new NotificationWriteRequest(
                 access.OrganizationId,
                 recipientId,
                 NotificationTypes.CommentAdded,
@@ -505,6 +526,24 @@ public sealed class CommentHandlers(
                 access.WorkItemId,
                 comment.Id,
                 now));
+            createdNotifications.Add((recipientId, notificationId));
+        }
+    }
+
+    private async Task PublishNotificationsAsync(
+        IEnumerable<(Guid RecipientId, Guid NotificationId)> createdNotifications,
+        DateTimeOffset occurredAt,
+        CancellationToken cancellationToken)
+    {
+        foreach (var notification in createdNotifications)
+        {
+            await realtimePublisher.PublishNotificationCreatedAsync(
+                notification.RecipientId,
+                new NotificationCreatedRealtimeEvent(
+                    notification.NotificationId,
+                    notification.NotificationId,
+                    occurredAt),
+                cancellationToken);
         }
     }
 

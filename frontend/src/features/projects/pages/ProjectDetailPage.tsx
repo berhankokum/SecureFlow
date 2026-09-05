@@ -10,6 +10,7 @@ import { useAddProjectMember, useArchiveProject, useChangeProjectMemberRole, use
 import type { UpdateProjectFormValues } from "../schemas/projectSchema";
 import { ProjectWorkItemsSection } from "@/features/work-items/components/ProjectWorkItemsSection";
 import { ProjectLabelsSection } from "@/features/labels/components/ProjectLabelsSection";
+import { useRealtimeProject } from "@/features/realtime/useRealtimeProject";
 
 const roles: ProjectRole[] = ["MANAGER", "CONTRIBUTOR", "VIEWER"];
 
@@ -19,6 +20,7 @@ export function ProjectDetailPage() {
   const projectsQuery = useProjects(organization.id);
   const summary = projectsQuery.data?.find(project => project.key === projectKey.toUpperCase());
   const projectId = summary?.id ?? "";
+  useRealtimeProject(projectId);
   const projectQuery = useProject(projectId);
   const membersQuery = useMembers(organization.id);
   const updateMutation = useUpdateProject(organization.id, projectId);

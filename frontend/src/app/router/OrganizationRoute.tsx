@@ -1,6 +1,7 @@
 import { Outlet, useParams } from "react-router-dom";
 import { OrganizationProvider } from "@/features/organizations/context/OrganizationProvider";
 import { useOrganizations } from "@/features/organizations/hooks/useOrganizations";
+import { RealtimeProvider } from "@/features/realtime/RealtimeProvider";
 
 export function OrganizationRoute() {
   const { organizationSlug } = useParams();
@@ -32,7 +33,9 @@ export function OrganizationRoute() {
 
   return (
     <OrganizationProvider organization={organization}>
-      <Outlet />
+      <RealtimeProvider key={organization.id} organizationId={organization.id}>
+        <Outlet />
+      </RealtimeProvider>
     </OrganizationProvider>
   );
 }
