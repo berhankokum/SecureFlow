@@ -40,6 +40,7 @@ public sealed class ListInvitationsHandler(
                 invitation.OrganizationId == organizationId
                 && invitation.AcceptedAt == null
                 && invitation.RevokedAt == null
+                && invitation.ExpiredAt == null
                 && invitation.ExpiresAt > now)
             .OrderByDescending(invitation => invitation.CreatedAt)
             .ToArrayAsync(cancellationToken);

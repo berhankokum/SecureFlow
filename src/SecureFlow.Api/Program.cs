@@ -77,7 +77,7 @@ try
     builder.Services.AddProjectsModule<SecureFlowDbContext>();
     builder.Services.AddWorkItemsModule<SecureFlowDbContext>();
     builder.Services.AddCollaborationModule<SecureFlowDbContext>();
-    builder.Services.AddNotificationsModule<SecureFlowDbContext>();
+    builder.Services.AddNotificationsModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddFilesModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddAuthorization();
 

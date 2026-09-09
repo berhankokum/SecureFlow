@@ -8,7 +8,16 @@ public sealed class OrganizationInvitationConfiguration : IEntityTypeConfigurati
 {
     public void Configure(EntityTypeBuilder<OrganizationInvitation> builder)
     {
-        builder.ToTable("OrganizationInvitations");
+        builder.ToTable("OrganizationInvitations", table =>
+        {
+            table.HasCheckConstraint(
+                "CK_OrganizationInvitations_TerminalState",
+                "((\"AcceptedAt\" IS NOT NULL)::int + (\"RevokedAt\" IS NOT NULL)::int + "
+                + "(\"ExpiredAt\" IS NOT NULL)::int) <= 1");
+            table.HasCheckConstraint(
+                "CK_OrganizationInvitations_ExpiredAt",
+                "\"ExpiredAt\" IS NULL OR \"ExpiredAt\" >= \"ExpiresAt\"");
+        });
         builder.HasKey(invitation => invitation.Id);
 
         builder.Property(invitation => invitation.Email)
@@ -31,15 +40,17 @@ public sealed class OrganizationInvitationConfiguration : IEntityTypeConfigurati
         builder.Property(invitation => invitation.RevokedAt)
             .IsConcurrencyToken();
 
+        builder.Property(invitation => invitation.ExpiredAt)
+            .IsConcurrencyToken();
+
         builder.HasIndex(invitation => invitation.TokenHash)
             .IsUnique()
             .HasDatabaseName("UX_OrganizationInvitations_TokenHash");
 
-        // Kabul/revoke edilmemiş tek invitation. Süresi geçmiş kayıt, yeni davet
-        // oluşturulurken handler tarafından revoke edilir.
+        // Aynı organization/email için yalnız bir aktif pending invitation olabilir.
         builder.HasIndex(invitation => new { invitation.OrganizationId, invitation.Email })
             .IsUnique()
-            .HasFilter("\"AcceptedAt\" IS NULL AND \"RevokedAt\" IS NULL")
+            .HasFilter("\"AcceptedAt\" IS NULL AND \"RevokedAt\" IS NULL AND \"ExpiredAt\" IS NULL")
             .HasDatabaseName("UX_OrganizationInvitations_PendingEmail");
 
         builder.HasIndex(invitation => new { invitation.OrganizationId, invitation.CreatedAt })

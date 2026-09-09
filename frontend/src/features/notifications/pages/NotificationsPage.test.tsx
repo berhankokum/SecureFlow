@@ -34,6 +34,6 @@ describe("NotificationsPage", () => {
     expect(markRead).toHaveBeenCalledWith("notification");
     await user.click(screen.getByRole("checkbox", { name: "E-posta bildirimleri" }));
     expect(updatePreference).toHaveBeenCalledWith(true);
-    expect(screen.getByText(/FAZ 16/)).toBeInTheDocument();
+    expect(screen.getByText(/yeni uygulama içi bildirimleriniz/)).toBeInTheDocument();
   });
 });

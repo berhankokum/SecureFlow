@@ -23,7 +23,7 @@ export function NotificationsPage() {
       <h2 id="notification-settings-title" className="font-semibold text-slate-900">Tercihler</h2>
       <label className="mt-3 flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked disabled /> Uygulama içi bildirimler</label>
       <label className="mt-3 flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked={preference.data?.emailEnabled ?? false} disabled={preference.isLoading || updatePreference.isPending} onChange={event => void run(() => updatePreference.mutateAsync(event.target.checked))} /> E-posta bildirimleri</label>
-      <p className="mt-2 text-xs text-slate-500">E-posta teslimatı FAZ 16’da devreye alınacaktır; tercihiniz şimdiden güvenli biçimde saklanır.</p>
+      <p className="mt-2 text-xs text-slate-500">Tercih açıkken yeni uygulama içi bildirimleriniz e-posta olarak da gönderilir.</p>
     </section>
 
     {error ? <p role="alert" className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}

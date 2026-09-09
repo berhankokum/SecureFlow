@@ -49,6 +49,11 @@ public sealed class RevokeInvitationHandler(
             return Result.Failure(OrganizationErrors.InvitationAlreadyUsed);
         }
 
+        if (invitation.IsExpired(clock.UtcNow))
+        {
+            return Result.Failure(OrganizationErrors.InvitationExpired);
+        }
+
         invitation.Revoke(clock.UtcNow);
 
         try

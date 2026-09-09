@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Mail;
 using Microsoft.Extensions.Options;
 using SecureFlow.Contracts.Email;
@@ -14,7 +15,17 @@ public sealed class SmtpIdentityEmailSender(IOptions<SmtpOptions> options)
     {
         var smtp = options.Value;
 
-        using var client = new SmtpClient(smtp.Host, smtp.Port);
+        using var client = new SmtpClient(smtp.Host, smtp.Port)
+        {
+            EnableSsl = smtp.EnableSsl,
+            Timeout = smtp.TimeoutMilliseconds,
+        };
+        if (!string.IsNullOrWhiteSpace(smtp.Username))
+        {
+            client.UseDefaultCredentials = false;
+            client.Credentials = new NetworkCredential(smtp.Username, smtp.Password);
+        }
+
         using var message = new MailMessage
         {
             From = new MailAddress(smtp.FromAddress, smtp.FromName),
@@ -24,6 +35,15 @@ public sealed class SmtpIdentityEmailSender(IOptions<SmtpOptions> options)
         };
         message.To.Add(toEmail);
 
-        await client.SendMailAsync(message, cancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(smtp.TimeoutMilliseconds);
+        try
+        {
+            await client.SendMailAsync(message, timeout.Token);
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("SMTP delivery timed out.", exception);
+        }
     }
 }

@@ -89,12 +89,20 @@ public sealed class CreateInvitationHandler(
                 invitation.OrganizationId == command.OrganizationId
                 && invitation.Email == normalizedEmail
                 && invitation.AcceptedAt == null
-                && invitation.RevokedAt == null)
+                && invitation.RevokedAt == null
+                && invitation.ExpiredAt == null)
             .ToArrayAsync(cancellationToken);
 
         foreach (var existingInvitation in existingInvitations)
         {
-            existingInvitation.Revoke(now);
+            if (existingInvitation.IsExpired(now))
+            {
+                existingInvitation.MarkExpired(now);
+            }
+            else
+            {
+                existingInvitation.Revoke(now);
+            }
         }
 
         var token = InvitationTokenService.Generate();

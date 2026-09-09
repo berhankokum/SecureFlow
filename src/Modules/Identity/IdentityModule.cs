@@ -31,7 +31,20 @@ public static class IdentityModule
         IConfiguration configuration)
         where TDbContext : DbContext
     {
-        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.AddOptions<SmtpOptions>()
+            .Bind(configuration.GetSection(SmtpOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Host),
+                "Smtp:Host is required.")
+            .Validate(options => options.Port is >= 1 and <= 65535,
+                "Smtp:Port must be between 1 and 65535.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.FromAddress),
+                "Smtp:FromAddress is required.")
+            .Validate(options => options.TimeoutMilliseconds is >= 1_000 and <= 120_000,
+                "Smtp:TimeoutMilliseconds must be between 1000 and 120000.")
+            .Validate(options =>
+                    string.IsNullOrWhiteSpace(options.Username) == string.IsNullOrWhiteSpace(options.Password),
+                "Smtp:Username and Smtp:Password must be provided together.")
+            .ValidateOnStart();
         services.Configure<FrontendOptions>(configuration.GetSection(FrontendOptions.SectionName));
 
         services.AddTransient<SmtpIdentityEmailSender>();

@@ -11,4 +11,12 @@ public sealed class SmtpOptions
     public string FromAddress { get; init; } = "noreply@secureflow.local";
 
     public string FromName { get; init; } = "SecureFlow";
+
+    public bool EnableSsl { get; init; }
+
+    public string? Username { get; init; }
+
+    public string? Password { get; init; }
+
+    public int TimeoutMilliseconds { get; init; } = 30_000;
 }
