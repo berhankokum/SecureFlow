@@ -46,11 +46,15 @@ public sealed class OrganizationInvitation : Entity
 
     public DateTimeOffset? RevokedAt { get; private set; }
 
+    public DateTimeOffset? ExpiredAt { get; private set; }
+
     public bool IsAccepted => AcceptedAt is not null;
 
     public bool IsRevoked => RevokedAt is not null;
 
-    public bool IsExpired(DateTimeOffset now) => now >= ExpiresAt;
+    public bool IsMarkedExpired => ExpiredAt is not null;
+
+    public bool IsExpired(DateTimeOffset now) => IsMarkedExpired || now >= ExpiresAt;
 
     public bool IsPending(DateTimeOffset now) => !IsAccepted && !IsRevoked && !IsExpired(now);
 
@@ -104,6 +108,11 @@ public sealed class OrganizationInvitation : Entity
             throw new DomainException("Revoke edilmiş invitation kabul edilemez.");
         }
 
+        if (IsMarkedExpired)
+        {
+            throw new DomainException("Süresi dolmuş invitation kabul edilemez.");
+        }
+
         if (IsExpired(acceptedAt))
         {
             throw new DomainException("Invitation süresi dolmuş.");
@@ -124,7 +133,23 @@ public sealed class OrganizationInvitation : Entity
             return;
         }
 
+        if (IsMarkedExpired)
+        {
+            throw new DomainException("Süresi dolmuş invitation revoke edilemez.");
+        }
+
         RevokedAt = revokedAt;
+    }
+
+    public bool MarkExpired(DateTimeOffset expiredAt)
+    {
+        if (IsAccepted || IsRevoked || IsMarkedExpired || expiredAt < ExpiresAt)
+        {
+            return false;
+        }
+
+        ExpiredAt = expiredAt;
+        return true;
     }
 
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();

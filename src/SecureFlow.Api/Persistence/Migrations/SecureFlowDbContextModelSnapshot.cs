@@ -403,6 +403,60 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.ToTable("Notifications", (string)null);
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.Notifications.Domain.NotificationEmailDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NotificationId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NotificationEmailDeliveries_NotificationId");
+
+                    b.HasIndex("Status", "NextAttemptAt")
+                        .HasDatabaseName("IX_NotificationEmailDeliveries_Status_NextAttemptAt");
+
+                    b.ToTable("NotificationEmailDeliveries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_NotificationEmailDeliveries_AttemptCount", "\"AttemptCount\" BETWEEN 0 AND 5");
+
+                            t.HasCheckConstraint("CK_NotificationEmailDeliveries_Identity", "\"Id\" = \"NotificationId\"");
+
+                            t.HasCheckConstraint("CK_NotificationEmailDeliveries_State", "(\"Status\" = 'Pending' AND \"NextAttemptAt\" IS NOT NULL AND \"SentAt\" IS NULL) OR (\"Status\" = 'Sent' AND \"NextAttemptAt\" IS NULL AND \"SentAt\" IS NOT NULL) OR (\"Status\" IN ('Failed', 'Skipped') AND \"NextAttemptAt\" IS NULL AND \"SentAt\" IS NULL)");
+
+                            t.HasCheckConstraint("CK_NotificationEmailDeliveries_Status", "\"Status\" IN ('Pending', 'Sent', 'Failed', 'Skipped')");
+                        });
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Notifications.Domain.NotificationPreference", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -483,6 +537,10 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
 
+                    b.Property<DateTimeOffset?>("ExpiredAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -518,9 +576,14 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.HasIndex("OrganizationId", "Email")
                         .IsUnique()
                         .HasDatabaseName("UX_OrganizationInvitations_PendingEmail")
-                        .HasFilter("\"AcceptedAt\" IS NULL AND \"RevokedAt\" IS NULL");
+                        .HasFilter("\"AcceptedAt\" IS NULL AND \"RevokedAt\" IS NULL AND \"ExpiredAt\" IS NULL");
 
-                    b.ToTable("OrganizationInvitations", (string)null);
+                    b.ToTable("OrganizationInvitations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OrganizationInvitations_ExpiredAt", "\"ExpiredAt\" IS NULL OR \"ExpiredAt\" >= \"ExpiresAt\"");
+
+                            t.HasCheckConstraint("CK_OrganizationInvitations_TerminalState", "((\"AcceptedAt\" IS NOT NULL)::int + (\"RevokedAt\" IS NOT NULL)::int + (\"ExpiredAt\" IS NOT NULL)::int) <= 1");
+                        });
                 });
 
             modelBuilder.Entity("SecureFlow.Modules.Organizations.Domain.OrganizationMember", b =>
@@ -807,6 +870,10 @@ namespace SecureFlow.Api.Persistence.Migrations
 
                     b.HasIndex("AssigneeId");
 
+                    b.HasIndex("DueDate")
+                        .HasDatabaseName("IX_WorkItems_DueDate_Active")
+                        .HasFilter("\"DueDate\" IS NOT NULL AND \"ArchivedAt\" IS NULL");
+
                     b.HasIndex("ProjectId")
                         .HasDatabaseName("IX_WorkItems_ProjectId");
 
@@ -1068,6 +1135,15 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.HasOne("SecureFlow.Modules.Identity.Domain.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Notifications.Domain.NotificationEmailDelivery", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Notifications.Domain.Notification", null)
+                        .WithOne()
+                        .HasForeignKey("SecureFlow.Modules.Notifications.Domain.NotificationEmailDelivery", "NotificationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

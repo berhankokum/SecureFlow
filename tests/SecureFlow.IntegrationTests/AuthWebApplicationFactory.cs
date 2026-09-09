@@ -64,6 +64,7 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
         builder.UseSetting("ObjectStorage:BucketName", "secureflow-attachments-tests");
         builder.UseSetting("ObjectStorage:Region", "us-east-1");
         builder.UseSetting("ObjectStorage:CreateBucketIfMissing", "true");
+        builder.UseSetting("BackgroundProcessing:Enabled", "false");
 
         builder.ConfigureServices(services =>
         {
@@ -102,7 +103,10 @@ public sealed class TestIdentityEmailSender : IIdentityEmailSender, IEmailSender
             throw new SmtpException("Test SMTP failure.");
         }
 
-        Messages.Add((toEmail, subject, htmlBody));
+        lock (Messages)
+        {
+            Messages.Add((toEmail, subject, htmlBody));
+        }
         return Task.CompletedTask;
     }
 }

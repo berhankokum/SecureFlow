@@ -14,6 +14,7 @@ using SecureFlow.Modules.Organizations.Presentation.Contracts;
 using SecureFlow.Modules.Organizations.Infrastructure;
 using SecureFlow.SharedKernel;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.BackgroundProcessing;
 
 namespace SecureFlow.Modules.Organizations;
 
@@ -38,6 +39,8 @@ public static class OrganizationsModule
         services.AddScoped<GetInvitationHandler>();
         services.AddScoped<AcceptInvitationHandler>();
         services.AddScoped<RevokeInvitationHandler>();
+        services.AddScoped<ExpiredInvitationCleanupProcessor>();
+        services.AddHostedService<ExpiredInvitationsBackgroundService>();
         services.AddScoped<IAuthorizationHandler, OrganizationPermissionAuthorizationHandler>();
         services.AddScoped<IValidator<CreateOrganizationRequest>, CreateOrganizationRequestValidator>();
         services.AddScoped<IValidator<CreateInvitationRequest>, CreateInvitationRequestValidator>();
@@ -47,6 +50,14 @@ public static class OrganizationsModule
             .Bind(configuration.GetSection(InvitationOptions.SectionName))
             .Validate(options => options.ExpirationHours is >= 1 and <= 720,
                 "Invitations:ExpirationHours must be between 1 and 720.")
+            .ValidateOnStart();
+
+        services.AddOptions<BackgroundProcessingOptions>()
+            .Bind(configuration.GetSection(BackgroundProcessingOptions.SectionName))
+            .Validate(options => options.PollingIntervalSeconds is >= 1 and <= 3600,
+                "BackgroundProcessing:PollingIntervalSeconds must be between 1 and 3600.")
+            .Validate(options => options.BatchSize is >= 1 and <= 1000,
+                "BackgroundProcessing:BatchSize must be between 1 and 1000.")
             .ValidateOnStart();
 
         services.PostConfigure<InvitationOptions>(options =>

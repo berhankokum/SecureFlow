@@ -1,5 +1,7 @@
 using SecureFlow.Modules.Collaboration.Domain;
 using SecureFlow.Modules.Notifications.Domain;
+using SecureFlow.Modules.Notifications.Application;
+using SecureFlow.SharedKernel;
 
 namespace SecureFlow.UnitTests;
 
@@ -73,5 +75,47 @@ public class NotificationTests
         var mention = Mention.Create(Guid.NewGuid(), Guid.NewGuid(), userId, Now);
         Assert.Equal(userId, mention.UserId);
         Assert.Throws<ArgumentException>(() => Mention.Create(Guid.NewGuid(), Guid.Empty, userId, Now));
+    }
+
+    [Fact]
+    public void Reminder_event_id_is_deterministic_per_work_item_and_due_date()
+    {
+        var workItemId = Guid.NewGuid();
+        var dueDate = new DateOnly(2026, 9, 8);
+
+        Assert.Equal(ReminderEventId.Create(workItemId, dueDate), ReminderEventId.Create(workItemId, dueDate));
+        Assert.NotEqual(ReminderEventId.Create(workItemId, dueDate), ReminderEventId.Create(workItemId, dueDate.AddDays(1)));
+    }
+
+    [Fact]
+    public void Email_delivery_uses_bounded_retry_schedule_and_terminal_states()
+    {
+        var delivery = NotificationEmailDelivery.Create(Guid.NewGuid(), true, Now);
+
+        Assert.Equal(NotificationEmailDeliveryStatus.Pending, delivery.Status);
+        Assert.Equal(Now, delivery.NextAttemptAt);
+
+        var expectedDelays = new[] { 1, 5, 15, 60 };
+        for (var index = 0; index < expectedDelays.Length; index++)
+        {
+            var failedAt = Now.AddHours(index);
+            delivery.RecordFailure("SmtpException", failedAt);
+            Assert.Equal(failedAt.AddMinutes(expectedDelays[index]), delivery.NextAttemptAt);
+        }
+
+        delivery.RecordFailure("SmtpException", Now.AddHours(4));
+        Assert.Equal(NotificationEmailDeliveryStatus.Failed, delivery.Status);
+        Assert.Equal(NotificationEmailDelivery.MaximumAttempts, delivery.AttemptCount);
+        Assert.Null(delivery.NextAttemptAt);
+    }
+
+    [Fact]
+    public void Disabled_email_preference_creates_terminal_skipped_delivery()
+    {
+        var delivery = NotificationEmailDelivery.Create(Guid.NewGuid(), false, Now);
+
+        Assert.Equal(NotificationEmailDeliveryStatus.Skipped, delivery.Status);
+        Assert.Null(delivery.NextAttemptAt);
+        Assert.Throws<DomainException>(() => delivery.MarkSent(Now));
     }
 }

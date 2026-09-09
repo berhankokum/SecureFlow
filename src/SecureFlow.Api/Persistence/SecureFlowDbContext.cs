@@ -67,6 +67,8 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
 
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
+    public DbSet<NotificationEmailDelivery> NotificationEmailDeliveries => Set<NotificationEmailDelivery>();
+
     public DbSet<Attachment> Attachments => Set<Attachment>();
 
     public async Task<PermissionRole?> GetActiveOrganizationRoleAsync(
@@ -233,6 +235,35 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
                 member => member.ProjectId == projectId && member.UserId == userId,
                 cancellationToken);
     }
+
+    public async Task<IReadOnlyList<DueReminderCandidate>> GetDueReminderCandidatesAsync(
+        DateOnly dueDate,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken) =>
+        await (
+            from workItem in WorkItems.AsNoTracking()
+            join project in Projects.AsNoTracking() on workItem.ProjectId equals project.Id
+            join state in WorkflowStates.AsNoTracking() on workItem.WorkflowStateId equals state.Id
+            where workItem.DueDate == dueDate
+                && workItem.ArchivedAt == null
+                && project.ArchivedAt == null
+                && state.Category != WorkflowCategory.Done
+                && workItem.OrganizationId == project.OrganizationId
+            orderby workItem.Id
+            select new DueReminderCandidate(
+                workItem.Id,
+                workItem.OrganizationId,
+                workItem.ProjectId,
+                project.Key,
+                workItem.Number,
+                workItem.Title,
+                workItem.ReporterId,
+                workItem.AssigneeId,
+                workItem.DueDate!.Value))
+            .Skip(offset)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken);
 
     public Task<CollaborationResourceScope?> FindWorkItemScopeAsync(
         Guid workItemId,
@@ -532,6 +563,12 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
             .HasOne<ApplicationUser>()
             .WithOne()
             .HasForeignKey<NotificationPreference>(preference => preference.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<NotificationEmailDelivery>()
+            .HasOne<Notification>()
+            .WithOne()
+            .HasForeignKey<NotificationEmailDelivery>(delivery => delivery.NotificationId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Attachment>()

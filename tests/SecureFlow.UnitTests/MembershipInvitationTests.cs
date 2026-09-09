@@ -45,6 +45,20 @@ public class MembershipInvitationTests
     }
 
     [Fact]
+    public void Expired_invitation_is_soft_marked_once_and_remains_terminal()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var invitation = CreateInvitation(now, now.AddMinutes(1));
+
+        Assert.False(invitation.MarkExpired(now));
+        Assert.True(invitation.MarkExpired(now.AddMinutes(1)));
+        Assert.False(invitation.MarkExpired(now.AddMinutes(2)));
+        Assert.True(invitation.IsMarkedExpired);
+        Assert.Throws<DomainException>(() => invitation.Accept(now.AddMinutes(2)));
+        Assert.Throws<DomainException>(() => invitation.Revoke(now.AddMinutes(2)));
+    }
+
+    [Fact]
     public void Removed_membership_can_be_reactivated_without_losing_row_identity()
     {
         var organizationId = Guid.NewGuid();
