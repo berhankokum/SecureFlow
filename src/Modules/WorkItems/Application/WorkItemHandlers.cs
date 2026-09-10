@@ -342,7 +342,6 @@ public sealed class GetWorkItemHandler(IWorkItemsDbContext dbContext, IUserDirec
 
 public sealed class UpdateWorkItemHandler(
     IWorkItemsDbContext dbContext,
-    IRealtimePublisher realtimePublisher,
     IClock clock)
 {
     public async Task<Result> HandleAsync(UpdateWorkItemCommand command, CancellationToken cancellationToken)
@@ -409,21 +408,12 @@ public sealed class UpdateWorkItemHandler(
             now);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        await realtimePublisher.PublishWorkItemUpdatedAsync(
-            new WorkItemUpdatedRealtimeEvent(
-                Guid.NewGuid(),
-                workItem.OrganizationId,
-                workItem.ProjectId,
-                workItem.Id,
-                now),
-            cancellationToken);
         return Result.Success();
     }
 }
 
 public sealed class ArchiveWorkItemHandler(
     IWorkItemsDbContext dbContext,
-    IRealtimePublisher realtimePublisher,
     IClock clock)
 {
     public async Task<Result> HandleAsync(
@@ -471,22 +461,10 @@ public sealed class ArchiveWorkItemHandler(
         var workItem = await dbContext.WorkItems.SingleAsync(
             item => item.Id == workItemId,
             cancellationToken);
-        var wasArchived = workItem.IsArchived;
         var now = clock.UtcNow;
         workItem.Archive(now);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        if (!wasArchived)
-        {
-            await realtimePublisher.PublishWorkItemUpdatedAsync(
-                new WorkItemUpdatedRealtimeEvent(
-                    Guid.NewGuid(),
-                    workItem.OrganizationId,
-                    workItem.ProjectId,
-                    workItem.Id,
-                    now),
-                cancellationToken);
-        }
         return Result.Success();
     }
 }

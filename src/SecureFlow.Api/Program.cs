@@ -18,6 +18,8 @@ using SecureFlow.Modules.WorkItems;
 using SecureFlow.Modules.Collaboration;
 using SecureFlow.Modules.Notifications;
 using SecureFlow.Modules.Files;
+using SecureFlow.Modules.Outbox;
+using SecureFlow.Contracts.Outbox;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -55,6 +57,7 @@ try
     });
     builder.Services.AddSingleton<IRealtimePublisher, SignalRRealtimePublisher>();
     builder.Services.AddScoped<IRealtimePublicationBuffer, RealtimePublicationBuffer>();
+    builder.Services.AddScoped<IOutboxEventDispatcher, SecureFlowOutboxDispatcher>();
 
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
@@ -79,6 +82,7 @@ try
     builder.Services.AddCollaborationModule<SecureFlowDbContext>();
     builder.Services.AddNotificationsModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddFilesModule<SecureFlowDbContext>(builder.Configuration);
+    builder.Services.AddOutboxModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddAuthorization();
 
     builder.Services.AddRateLimiter(options =>

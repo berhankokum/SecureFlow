@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SecureFlow.Contracts.Activity;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Identity;
+using SecureFlow.Contracts.Outbox;
 using SecureFlow.Modules.Files.Application.Abstractions;
 using SecureFlow.Modules.Files.Application.Models;
 using SecureFlow.Modules.Files.Domain;
@@ -38,6 +39,7 @@ public sealed class AttachmentHandlers(
     IObjectStorage objectStorage,
     IUserDirectory userDirectory,
     IActivityWriter activityWriter,
+    IDurableOutboxWriter durableOutboxWriter,
     IClock clock,
     ILogger<AttachmentHandlers> logger)
 {
@@ -257,18 +259,6 @@ public sealed class AttachmentHandlers(
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        try
-        {
-            await objectStorage.DeleteAsync(attachment.StorageKey, CancellationToken.None);
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(
-                exception,
-                "Soft-deleted attachment object cleanup failed for {AttachmentId}; durable retry is deferred to Phase 17.",
-                attachment.Id);
-        }
-
         return Result.Success();
     }
 
@@ -319,7 +309,19 @@ public sealed class AttachmentHandlers(
         catch (Exception exception)
         {
             logger.LogError(exception, "Attachment upload compensation failed for {AttachmentId}.", attachmentId);
+            await durableOutboxWriter.AddAsync(
+                OutboxEvents.AttachmentDelete(AttachmentDeleteEventId(attachmentId), storageKey, clock.UtcNow),
+                CancellationToken.None);
         }
+    }
+
+    private static Guid AttachmentDeleteEventId(Guid attachmentId)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        attachmentId.TryWriteBytes(bytes);
+        bytes[0] ^= 0xA7;
+        bytes[15] ^= 0x17;
+        return new Guid(bytes);
     }
 
     private static AttachmentSummary ToSummary(

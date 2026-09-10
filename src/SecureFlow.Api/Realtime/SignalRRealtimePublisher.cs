@@ -47,18 +47,11 @@ public sealed class SignalRRealtimePublisher(
     {
         try
         {
-            await hubContext.Clients.Group(groupName).SendAsync(
-                eventName,
-                message,
-                cancellationToken);
+            await hubContext.Clients.Group(groupName).SendAsync(eventName, message, cancellationToken);
         }
         catch (Exception exception)
         {
-            logger.LogWarning(
-                exception,
-                "Best-effort SignalR publication failed for event {EventId} ({EventName}).",
-                eventId,
-                eventName);
+            logger.LogWarning(exception, "Best-effort SignalR publication failed for event {EventId} ({EventName}).", eventId, eventName);
         }
     }
 }
