@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.Caching;
 using SecureFlow.Modules.Projects.Application.Abstractions;
 using SecureFlow.Modules.Projects.Domain;
 
@@ -11,7 +12,7 @@ public sealed record ProjectAccessEvaluation(
     bool HasProjectAccess,
     IReadOnlyList<string> Permissions);
 
-public sealed class ProjectAuthorizationEvaluator(IProjectsDbContext dbContext)
+public sealed class ProjectAuthorizationEvaluator(IProjectsDbContext dbContext, PermissionCache permissionCache)
 {
     public async Task<ProjectAccessEvaluation?> EvaluateAsync(
         Guid projectId,
@@ -41,7 +42,9 @@ public sealed class ProjectAuthorizationEvaluator(IProjectsDbContext dbContext)
             organizationRole.Value,
             projectRole,
             hasAccess,
-            GetPermissions(organizationRole.Value, projectRole));
+            hasAccess ? await permissionCache.GetAsync(organizationId, userId, projectId,
+                organizationRole.Value, projectRole is { } role ? ToPermissionRole(role) : null,
+                cancellationToken: cancellationToken) : []);
     }
 
     public static IReadOnlyList<string> GetPermissions(

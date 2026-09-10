@@ -31,6 +31,7 @@ public static class OrganizationsModule
         services.AddScoped<CreateOrganizationHandler>();
         services.AddScoped<ListOrganizationsHandler>();
         services.AddScoped<GetOrganizationHandler>();
+        services.AddScoped<OrganizationReadService>();
         services.AddScoped<ListMembersHandler>();
         services.AddScoped<ChangeMemberRoleHandler>();
         services.AddScoped<RemoveMemberHandler>();

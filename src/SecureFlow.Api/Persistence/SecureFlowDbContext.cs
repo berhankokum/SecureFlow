@@ -21,6 +21,7 @@ using SecureFlow.Modules.Files.Domain;
 using SecureFlow.Modules.Outbox.Application;
 using SecureFlow.Modules.Outbox.Domain;
 using SecureFlow.Contracts.Outbox;
+using SecureFlow.Contracts.Caching;
 using System.Text.Json;
 
 namespace SecureFlow.Api.Persistence;
@@ -31,7 +32,7 @@ namespace SecureFlow.Api.Persistence;
 /// (Organization/Project roller ASP.NET Identity Role'ü kullanmaz, bkz. SecureFlow-Final.md §8).
 /// Her modül kendi entity configuration'larını ApplyConfigurationsFromAssembly ile katar.
 /// </summary>
-public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options)
+public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options, PermissionCache permissionCache)
     : IdentityUserContext<ApplicationUser, Guid>(options), IOrganizationsDbContext, ITeamsDbContext,
         IProjectsDbContext, IWorkItemsDbContext, ICollaborationDbContext, INotificationsDbContext,
         IFilesDbContext, IOutboxDbContext
@@ -276,7 +277,9 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         var hasProjectAccess = organizationRole is PermissionRole.Owner or PermissionRole.Admin
             || projectRole is not null;
         var permissions = hasProjectAccess
-            ? ProjectAuthorizationEvaluator.GetPermissions(organizationRole.Value, projectRole)
+            ? await permissionCache.GetAsync(project.OrganizationId, userId, projectId, organizationRole.Value,
+                projectRole is { } role ? ProjectAuthorizationEvaluator.ToPermissionRole(role) : null,
+                cancellationToken: cancellationToken)
             : [];
 
         return new WorkItemProjectContext(
@@ -401,7 +404,9 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         var hasProjectAccess = organizationRole is PermissionRole.Owner or PermissionRole.Admin
             || projectRole is not null;
         var permissions = hasProjectAccess
-            ? ProjectAuthorizationEvaluator.GetPermissions(organizationRole.Value, projectRole)
+            ? await permissionCache.GetAsync(resource.OrganizationId, userId, resource.ProjectId, organizationRole.Value,
+                projectRole is { } role ? ProjectAuthorizationEvaluator.ToPermissionRole(role) : null,
+                cancellationToken: cancellationToken)
             : [];
         var canModerate = organizationRole is PermissionRole.Owner or PermissionRole.Admin
             || projectRole is ProjectRole.Manager;
