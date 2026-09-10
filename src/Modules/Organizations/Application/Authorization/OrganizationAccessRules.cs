@@ -40,7 +40,7 @@ public static class OrganizationAccessRules
     public static IReadOnlyList<string> GetPermissions(OrganizationRole role) =>
         PermissionMatrix.GetPermissions(ToPermissionRole(role));
 
-    private static PermissionRole ToPermissionRole(OrganizationRole role) => role switch
+    public static PermissionRole ToPermissionRole(OrganizationRole role) => role switch
     {
         OrganizationRole.Owner => PermissionRole.Owner,
         OrganizationRole.Admin => PermissionRole.Admin,

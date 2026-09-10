@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using SecureFlow.Api.Configuration;
+using SecureFlow.Api.Caching;
 using SecureFlow.Api.HealthChecks;
 using SecureFlow.Api.Persistence;
 using SecureFlow.Api.Realtime;
@@ -47,6 +48,7 @@ try
         .ReadFrom.Services(services));
 
     builder.Services.AddControllers();
+    builder.Services.AddSecureFlowCaching(builder.Configuration);
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails();
     builder.Services.AddSignalR(options =>
@@ -180,10 +182,15 @@ try
         Predicate = _ => false
     });
 
-    // Readiness: critical dependencies (PostgreSQL and Object Storage; Redis when introduced) must be reachable.
+    // Readiness covers PostgreSQL and Object Storage; optional Redis health is reported separately.
     app.MapHealthChecks("/health/ready", new HealthCheckOptions
     {
         Predicate = check => check.Tags.Contains("ready")
+    });
+
+    app.MapHealthChecks("/health/cache", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("cache")
     });
 
     app.Run();

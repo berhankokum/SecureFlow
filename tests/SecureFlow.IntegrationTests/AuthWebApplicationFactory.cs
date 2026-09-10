@@ -39,6 +39,14 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
             request.ForPort(9000).ForPath("/minio/health/ready")))
         .Build();
 
+    private readonly IContainer _redis = new ContainerBuilder(
+            "redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2")
+        .WithPortBinding(6379, true)
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "ping"))
+        .Build();
+
+    public string RedisConnectionString => $"{_redis.Hostname}:{_redis.GetMappedPublicPort(6379)}";
+
     public HttpClient CreateSecureClient() => CreateClient(new WebApplicationFactoryClientOptions
     {
         BaseAddress = new Uri("https://localhost"),
@@ -47,15 +55,16 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
     });
 
     async Task IAsyncLifetime.InitializeAsync() =>
-        await Task.WhenAll(_postgres.StartAsync(), _objectStorage.StartAsync());
+        await Task.WhenAll(_postgres.StartAsync(), _objectStorage.StartAsync(), _redis.StartAsync());
 
     async Task IAsyncLifetime.DisposeAsync() =>
-        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _objectStorage.DisposeAsync().AsTask());
+        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _objectStorage.DisposeAsync().AsTask(), _redis.DisposeAsync().AsTask());
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
+        builder.UseSetting("ConnectionStrings:Redis", RedisConnectionString);
         builder.UseSetting(
             "ObjectStorage:ServiceUrl",
             $"http://{_objectStorage.Hostname}:{_objectStorage.GetMappedPublicPort(9000)}");
@@ -69,6 +78,9 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
 
         builder.ConfigureServices(services =>
         {
+            services.AddSingleton<CacheQueryCounter>();
+            services.ConfigureDbContext<SecureFlowDbContext>((provider, options) =>
+                options.AddInterceptors(provider.GetRequiredService<CacheQueryCounter>()));
             services.RemoveAll<IIdentityEmailSender>();
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<TestIdentityEmailSender>();
