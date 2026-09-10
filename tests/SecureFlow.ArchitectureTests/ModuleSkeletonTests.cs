@@ -19,6 +19,7 @@ public class ModuleSkeletonTests
         "SecureFlow.Modules.Notifications",
         "SecureFlow.Modules.Files",
         "SecureFlow.Modules.Audit",
+        "SecureFlow.Modules.Outbox",
     ];
 
     [Theory]

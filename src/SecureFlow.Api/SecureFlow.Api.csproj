@@ -33,6 +33,7 @@
     <ProjectReference Include="..\Modules\Notifications\SecureFlow.Modules.Notifications.csproj" />
     <ProjectReference Include="..\Modules\Files\SecureFlow.Modules.Files.csproj" />
     <ProjectReference Include="..\Modules\Audit\SecureFlow.Modules.Audit.csproj" />
+    <ProjectReference Include="..\Modules\Outbox\SecureFlow.Modules.Outbox.csproj" />
   </ItemGroup>
 
 </Project>

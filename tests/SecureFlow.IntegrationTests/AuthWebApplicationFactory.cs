@@ -65,6 +65,7 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
         builder.UseSetting("ObjectStorage:Region", "us-east-1");
         builder.UseSetting("ObjectStorage:CreateBucketIfMissing", "true");
         builder.UseSetting("BackgroundProcessing:Enabled", "false");
+        builder.UseSetting("Outbox:Enabled", "false");
 
         builder.ConfigureServices(services =>
         {

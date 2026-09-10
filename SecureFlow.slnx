@@ -20,6 +20,9 @@
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/SecureFlow.Modules.Notifications.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Outbox/">
+    <Project Path="src/Modules/Outbox/SecureFlow.Modules.Outbox.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Organizations/">
     <Project Path="src/Modules/Organizations/SecureFlow.Modules.Organizations.csproj" />
   </Folder>

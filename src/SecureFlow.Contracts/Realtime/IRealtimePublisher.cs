@@ -29,7 +29,7 @@ public sealed record NotificationCreatedRealtimeEvent(
 
 /// <summary>
 /// Commit edilmiş mutation'lardan sonra best-effort real-time invalidation yayını yapar.
-/// FAZ 17 Outbox, commit ile publish arasındaki güvenilirlik boşluğunu kapatacaktır.
+/// FAZ 17 Outbox, commit ile publish arasındaki güvenilirlik boşluğunu kalıcı intent ile kapatır.
 /// </summary>
 public interface IRealtimePublisher
 {

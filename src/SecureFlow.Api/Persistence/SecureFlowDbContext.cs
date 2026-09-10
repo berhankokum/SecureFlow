@@ -6,6 +6,7 @@ using SecureFlow.Modules.Organizations.Domain;
 using SecureFlow.Modules.Teams.Application.Abstractions;
 using SecureFlow.Modules.Teams.Domain;
 using SecureFlow.Contracts.Authorization;
+using SecureFlow.Contracts.Activity;
 using SecureFlow.Modules.Projects.Application.Abstractions;
 using SecureFlow.Modules.Projects.Application.Authorization;
 using SecureFlow.Modules.Projects.Domain;
@@ -17,6 +18,10 @@ using SecureFlow.Modules.Notifications.Application.Abstractions;
 using SecureFlow.Modules.Notifications.Domain;
 using SecureFlow.Modules.Files.Application.Abstractions;
 using SecureFlow.Modules.Files.Domain;
+using SecureFlow.Modules.Outbox.Application;
+using SecureFlow.Modules.Outbox.Domain;
+using SecureFlow.Contracts.Outbox;
+using System.Text.Json;
 
 namespace SecureFlow.Api.Persistence;
 
@@ -29,8 +34,9 @@ namespace SecureFlow.Api.Persistence;
 public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options)
     : IdentityUserContext<ApplicationUser, Guid>(options), IOrganizationsDbContext, ITeamsDbContext,
         IProjectsDbContext, IWorkItemsDbContext, ICollaborationDbContext, INotificationsDbContext,
-        IFilesDbContext
+        IFilesDbContext, IOutboxDbContext
 {
+    private static readonly JsonSerializerOptions OutboxJsonOptions = new(JsonSerializerDefaults.Web);
     public DbSet<Organization> Organizations => Set<Organization>();
 
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
@@ -70,6 +76,73 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
     public DbSet<NotificationEmailDelivery> NotificationEmailDeliveries => Set<NotificationEmailDelivery>();
 
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await CaptureOutboxEventsAsync(cancellationToken);
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task CaptureOutboxEventsAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<WorkItem>().Where(x => x.State is EntityState.Added or EntityState.Modified).ToArray())
+        {
+            var type = entry.State == EntityState.Added ? OutboxEventTypes.WorkItemCreated
+                : entry.Property(nameof(WorkItem.AssigneeId)).IsModified ? OutboxEventTypes.WorkItemAssigned
+                : entry.Property(nameof(WorkItem.WorkflowStateId)).IsModified ? OutboxEventTypes.WorkItemTransitioned
+                : OutboxEventTypes.WorkItemUpdated;
+            var eventId = type switch
+            {
+                OutboxEventTypes.WorkItemCreated => FindActivityEventId(entry.Entity.Id, ActivityTypes.WorkItemCreated),
+                OutboxEventTypes.WorkItemAssigned => FindActivityEventId(entry.Entity.Id, ActivityTypes.WorkItemAssigned, ActivityTypes.WorkItemUnassigned),
+                OutboxEventTypes.WorkItemTransitioned => FindActivityEventId(entry.Entity.Id, ActivityTypes.WorkItemTransitioned),
+                _ => null,
+            } ?? Guid.NewGuid();
+            AddOutbox(eventId, type, new WorkItemOutboxPayload(entry.Entity.OrganizationId, entry.Entity.ProjectId, entry.Entity.Id), now);
+        }
+
+        foreach (var entry in ChangeTracker.Entries<WorkItemLabel>().Where(x => x.State is EntityState.Added or EntityState.Deleted).ToArray())
+        {
+            var workItem = WorkItems.Local.FirstOrDefault(x => x.Id == entry.Entity.WorkItemId)
+                ?? await WorkItems.AsNoTracking().SingleAsync(x => x.Id == entry.Entity.WorkItemId, cancellationToken);
+            AddOutbox(FindActivityEventId(workItem.Id, ActivityTypes.LabelAssigned, ActivityTypes.LabelRemoved) ?? Guid.NewGuid(), OutboxEventTypes.WorkItemUpdated, new WorkItemOutboxPayload(workItem.OrganizationId, workItem.ProjectId, workItem.Id), now);
+        }
+
+        foreach (var entry in ChangeTracker.Entries<Comment>().Where(x => x.State == EntityState.Added).ToArray())
+        {
+            var workItem = WorkItems.Local.FirstOrDefault(x => x.Id == entry.Entity.WorkItemId)
+                ?? await WorkItems.AsNoTracking().SingleAsync(x => x.Id == entry.Entity.WorkItemId, cancellationToken);
+            AddOutbox(FindActivityEventId(workItem.Id, ActivityTypes.CommentCreated) ?? Guid.NewGuid(), OutboxEventTypes.CommentCreated, new CommentOutboxPayload(entry.Entity.OrganizationId, workItem.ProjectId, entry.Entity.WorkItemId, entry.Entity.Id), entry.Entity.CreatedAt);
+        }
+
+        foreach (var entry in ChangeTracker.Entries<Notification>().Where(x => x.State == EntityState.Added).ToArray())
+            AddOutbox(entry.Entity.Id, OutboxEventTypes.NotificationCreated, new NotificationOutboxPayload(entry.Entity.UserId, entry.Entity.Id), entry.Entity.CreatedAt);
+
+        foreach (var entry in ChangeTracker.Entries<OrganizationMember>().Where(x => x.State == EntityState.Modified && x.Property(nameof(OrganizationMember.RemovedAt)).IsModified && x.Entity.RemovedAt is not null).ToArray())
+            AddOutbox(Guid.NewGuid(), OutboxEventTypes.MemberRemoved, new MembershipOutboxPayload(entry.Entity.OrganizationId, entry.Entity.UserId), entry.Entity.RemovedAt!.Value);
+
+        foreach (var entry in ChangeTracker.Entries<Attachment>().Where(x => x.State == EntityState.Modified && x.Property(nameof(Attachment.DeletedAt)).IsModified && x.Entity.DeletedAt is not null).ToArray())
+            AddOutbox(AttachmentDeleteEventId(entry.Entity.Id), OutboxEventTypes.AttachmentObjectDeleteRequested, new AttachmentObjectDeletePayload(entry.Entity.StorageKey), entry.Entity.DeletedAt!.Value);
+    }
+
+    private void AddOutbox(Guid id, string type, object payload, DateTimeOffset occurredAt)
+    {
+        if (OutboxMessages.Local.Any(x => x.Id == id)) return;
+        OutboxMessages.Add(OutboxMessage.Create(id, type, 1, JsonSerializer.Serialize(payload, payload.GetType(), OutboxJsonOptions), occurredAt));
+    }
+
+    private Guid? FindActivityEventId(Guid workItemId, params string[] types) =>
+        ChangeTracker.Entries<ActivityEvent>()
+            .Where(x => x.State == EntityState.Added && x.Entity.WorkItemId == workItemId && types.Contains(x.Entity.Type, StringComparer.Ordinal))
+            .Select(x => (Guid?)x.Entity.Id)
+            .LastOrDefault();
+
+    public static Guid AttachmentDeleteEventId(Guid attachmentId)
+    {
+        Span<byte> bytes = stackalloc byte[16]; attachmentId.TryWriteBytes(bytes); bytes[0] ^= 0xA7; bytes[15] ^= 0x17; return new Guid(bytes);
+    }
 
     public async Task<PermissionRole?> GetActiveOrganizationRoleAsync(
         Guid organizationId,
@@ -405,6 +478,7 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Comment).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Notification).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Attachment).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(OutboxMessage).Assembly);
 
         // Cross-module user references composition root'ta kurulur; domain modülleri
         // birbirlerinin assembly'lerine bağımlı hale getirilmez.
