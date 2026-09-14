@@ -2,7 +2,7 @@ import { apiClient } from "@/lib/api/apiClient";
 import type { WorkItem, WorkItemPayload, Workflow } from "./types";
 
 export const workItemApi = {
-  list: (projectId: string): Promise<WorkItem[]> => apiClient.get(`/projects/${projectId}/work-items`),
+  list: (projectId: string, query = ""): Promise<WorkItem[]> => apiClient.get(`/projects/${projectId}/work-items${query ? `?${query}` : ""}`),
   get: (workItemId: string): Promise<WorkItem> => apiClient.get(`/work-items/${workItemId}`),
   getWorkflow: (projectId: string): Promise<Workflow> => apiClient.get(`/projects/${projectId}/workflow`),
   create: (projectId: string, payload: WorkItemPayload): Promise<WorkItem> =>

@@ -18,6 +18,7 @@ const project = {
 };
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/api/v1/projects/project-1/workflow", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ states: [], transitions: [] }) }));
   await page.route("**/api/v1/projects/project-1/labels", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await page.route("**/api/v1/work-items/workitem-1/comments", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   await page.route("**/api/v1/work-items/workitem-1/activity", route => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
@@ -32,7 +33,7 @@ test.beforeEach(async ({ page }) => {
 test("manager creates, opens and edits a WorkItem", async ({ page }) => {
   let workItems: object[] = [];
   let csrfHeader: string | undefined;
-  await page.route("**/api/v1/projects/project-1/work-items", async route => {
+  await page.route("**/api/v1/projects/project-1/work-items*", async route => {
     if (route.request().method() === "POST") {
       csrfHeader = route.request().headers()["x-csrf-token"];
       const payload = route.request().postDataJSON();
@@ -69,4 +70,27 @@ test("manager creates, opens and edits a WorkItem", async ({ page }) => {
   await page.getByRole("button", { name: "Kaydet" }).click();
   await expect(page.getByRole("heading", { name: "Tenant boundary fixed" })).toBeVisible();
   expect(csrfHeader).toBe("e2e-csrf-token");
+});
+
+test("search paging persists in URL and old item detail resolves by number", async ({ page }) => {
+  const item = (number: number) => ({ id: `workitem-${number}`, organizationId: organization.id, projectId: project.id, projectKey: "SF", number, key: `SF-${number}`, title: `Result ${number}`, type: "TASK", description: null, priority: "MEDIUM", workflowStateId: "state", workflowStateName: "TODO", workflowStateCategory: "TODO", reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: null, assigneeEmail: null, dueDate: null, createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null, permissions: [], labels: [] });
+  const requests: string[] = [];
+  await page.route("**/api/v1/projects/project-1/work-items*", route => {
+    const query = new URL(route.request().url()).searchParams;
+    requests.push(query.toString());
+    const result = query.has("number") ? [item(Number(query.get("number")))]
+      : query.get("page") === "2" ? [item(31)] : Array.from({ length: 10 }, (_, i) => item(i + 1));
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(result) });
+  });
+  await page.route("**/api/v1/work-items/workitem-31", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(item(31)) }));
+  await page.goto("/app/acme/projects/SF?search=tenant&pageSize=10");
+  await expect(page.getByLabel("Arama", { exact: true })).toHaveValue("tenant");
+  await page.getByRole("button", { name: "Sonraki sayfa" }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(page.getByText("Result 31", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Result 31", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: /SF-31/ }).click();
+  await expect(page.getByRole("heading", { name: "Result 31" })).toBeVisible();
+  expect(requests).toContain("number=31");
 });

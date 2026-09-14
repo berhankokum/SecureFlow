@@ -59,7 +59,7 @@ public sealed class ProjectWorkItemsController(
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(Guid projectId, CancellationToken cancellationToken)
+    public async Task<IActionResult> List(Guid projectId, [FromQuery] WorkItemListQuery query, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -72,7 +72,7 @@ public sealed class ProjectWorkItemsController(
             return authorizationError;
         }
 
-        var result = await listHandler.HandleAsync(projectId, currentUserId, cancellationToken);
+        var result = await listHandler.HandleAsync(projectId, currentUserId, cancellationToken, query);
         return result.IsSuccess
             ? Ok(result.Value.Select(WorkItemResponse.From).ToArray())
             : WorkItemErrorResult.Map(this, result.Error);
