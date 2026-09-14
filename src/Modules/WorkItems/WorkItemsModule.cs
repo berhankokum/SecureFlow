@@ -22,6 +22,7 @@ public static class WorkItemsModule
         services.AddScoped<ListWorkItemsHandler>();
         services.AddScoped<GetWorkItemHandler>();
         services.AddScoped<UpdateWorkItemHandler>();
+        services.AddScoped<WorkItemPrecondition>();
         services.AddScoped<ArchiveWorkItemHandler>();
         services.AddScoped<LabelHandlers>();
         services.AddScoped<AssignmentHandler>();

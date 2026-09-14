@@ -10,6 +10,8 @@ internal static class WorkItemErrorResult
     {
         var statusCode = error.Code switch
         {
+            "WorkItems.StaleVersion" => 412,
+            "WorkItems.PreconditionRequired" => 428,
             "WorkItems.NotFound" or "Labels.NotFound" => StatusCodes.Status404NotFound,
             "WorkItems.Forbidden" => StatusCodes.Status403Forbidden,
             "Labels.DuplicateName"

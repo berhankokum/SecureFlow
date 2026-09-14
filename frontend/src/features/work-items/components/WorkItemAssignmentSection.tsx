@@ -13,9 +13,9 @@ export function WorkItemAssignmentSection({ workItem, project }: { workItem: Wor
   const organization = useCurrentOrganization();
   const hasOrganizationWideAccess = organization.role === "OWNER" || organization.role === "ADMIN";
   const organizationMembers = useMembers(organization.id, hasOrganizationWideAccess);
-  const assign = useAssignWorkItem(project.id, workItem.id);
-  const selfAssign = useSelfAssignWorkItem(project.id, workItem.id);
-  const unassign = useUnassignWorkItem(project.id, workItem.id);
+  const assign = useAssignWorkItem(project.id, workItem.id, workItem.version);
+  const selfAssign = useSelfAssignWorkItem(project.id, workItem.id, workItem.version);
+  const unassign = useUnassignWorkItem(project.id, workItem.id, workItem.version);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const readOnly = project.archivedAt !== null || workItem.archivedAt !== null;

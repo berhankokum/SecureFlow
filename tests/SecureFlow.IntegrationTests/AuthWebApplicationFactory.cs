@@ -47,12 +47,8 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
 
     public string RedisConnectionString => $"{_redis.Hostname}:{_redis.GetMappedPublicPort(6379)}";
 
-    public HttpClient CreateSecureClient() => CreateClient(new WebApplicationFactoryClientOptions
-    {
-        BaseAddress = new Uri("https://localhost"),
-        AllowAutoRedirect = false,
-        HandleCookies = true,
-    });
+    public HttpClient CreateSecureClient() => CreateDefaultClient(new Uri("https://localhost"),
+        new WorkItemVersionHandler(), new Microsoft.AspNetCore.Mvc.Testing.Handlers.CookieContainerHandler());
 
     async Task IAsyncLifetime.InitializeAsync() =>
         await Task.WhenAll(_postgres.StartAsync(), _objectStorage.StartAsync(), _redis.StartAsync());

@@ -22,6 +22,7 @@ public static class WorkflowErrors
 
 public sealed class WorkflowHandlers(
     IWorkItemsDbContext dbContext,
+    WorkItemPrecondition precondition,
     IActivityWriter activityWriter,
     INotificationWriter notificationWriter,
     IRealtimePublisher realtimePublisher,
@@ -130,6 +131,7 @@ public sealed class WorkflowHandlers(
         var workItem = await dbContext.WorkItems.SingleAsync(
             item => item.Id == workItemId,
             cancellationToken);
+        if (precondition.Check(workItem.Version) is { } versionError) return Result.Failure(versionError);
         if (workItem.IsArchived)
         {
             return Result.Failure(WorkItemErrors.Archived);

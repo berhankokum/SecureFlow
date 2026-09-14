@@ -64,38 +64,39 @@ function useInvalidateWorkItem(projectId: string, workItemId: string) {
   ]);
 }
 
-export function useUpdateWorkItem(projectId: string, workItemId: string) {
+export function useUpdateWorkItem(projectId: string, workItemId: string, version?: number) {
   const invalidate = useInvalidateWorkItem(projectId, workItemId);
   return useMutation({
-    mutationFn: (payload: WorkItemPayload) => workItemApi.update(workItemId, payload),
-    onSuccess: invalidate,
+    mutationFn: (payload: WorkItemPayload) => workItemApi.update(workItemId, payload, version),
+    onError: invalidate, onSuccess: invalidate,
   });
 }
 
-export function useArchiveWorkItem(projectId: string, workItemId: string) {
+export function useArchiveWorkItem(projectId: string, workItemId: string, version?: number) {
   const invalidate = useInvalidateWorkItem(projectId, workItemId);
-  return useMutation({ mutationFn: () => workItemApi.archive(workItemId), onSuccess: invalidate });
+  return useMutation({ mutationFn: () => workItemApi.archive(workItemId, version), onError: invalidate, onSuccess: invalidate });
 }
 
-export function useAssignWorkItem(projectId: string, workItemId: string) {
+export function useAssignWorkItem(projectId: string, workItemId: string, version?: number) {
   const invalidate = useInvalidateWorkItem(projectId, workItemId);
   return useMutation({
-    mutationFn: (assigneeId: string) => workItemApi.assign(workItemId, assigneeId),
-    onSuccess: invalidate,
+    mutationFn: (assigneeId: string) => workItemApi.assign(workItemId, assigneeId, version),
+    onError: invalidate, onSuccess: invalidate,
   });
 }
 
-export function useSelfAssignWorkItem(projectId: string, workItemId: string) {
+export function useSelfAssignWorkItem(projectId: string, workItemId: string, version?: number) {
   const invalidate = useInvalidateWorkItem(projectId, workItemId);
-  return useMutation({ mutationFn: () => workItemApi.selfAssign(workItemId), onSuccess: invalidate });
+  return useMutation({ mutationFn: () => workItemApi.selfAssign(workItemId, version), onError: invalidate, onSuccess: invalidate });
 }
 
-export function useUnassignWorkItem(projectId: string, workItemId: string) {
+export function useUnassignWorkItem(projectId: string, workItemId: string, version?: number) {
   const invalidate = useInvalidateWorkItem(projectId, workItemId);
-  return useMutation({ mutationFn: () => workItemApi.unassign(workItemId), onSuccess: invalidate });
+  return useMutation({ mutationFn: () => workItemApi.unassign(workItemId, version), onError: invalidate, onSuccess: invalidate });
 }
 
 interface TransitionVariables {
+  version?: number;
   workItemId: string;
   toState: WorkflowState;
 }
@@ -108,7 +109,7 @@ interface TransitionContext {
 export function useTransitionWorkItem(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation<void, Error, TransitionVariables, TransitionContext>({
-    mutationFn: ({ workItemId, toState }) => workItemApi.transition(workItemId, toState.id),
+    mutationFn: ({ workItemId, toState, version }) => workItemApi.transition(workItemId, toState.id, version),
     onMutate: async ({ workItemId, toState }) => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: workItemKeys.all(projectId) }),

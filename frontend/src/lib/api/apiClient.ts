@@ -35,6 +35,7 @@ async function getCsrfToken(): Promise<string> {
 }
 
 interface RequestOptions {
+  version?: number;
   method?: string;
   body?: unknown;
 }
@@ -42,6 +43,7 @@ interface RequestOptions {
 async function request<TResponse>(path: string, options: RequestOptions = {}): Promise<TResponse> {
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers();
+  if (options.version !== undefined) headers.set("If-Match", `"${options.version}"`);
 
   if (options.body !== undefined) {
     headers.set("Content-Type", "application/json");
@@ -131,10 +133,10 @@ async function download(path: string, fileName: string): Promise<void> {
 
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body }),
+  post: <T>(path: string, body?: unknown, version?: number) => request<T>(path, { method: "POST", body, version }),
   put: <T>(path: string, body: unknown) => request<T>(path, { method: "PUT", body }),
-  patch: <T>(path: string, body: unknown) => request<T>(path, { method: "PATCH", body }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  patch: <T>(path: string, body: unknown, version?: number) => request<T>(path, { method: "PATCH", body, version }),
+  delete: <T>(path: string, version?: number) => request<T>(path, { method: "DELETE", version }),
   upload,
   download,
 };

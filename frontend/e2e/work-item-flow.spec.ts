@@ -1,6 +1,43 @@
 import { expect, test } from "@playwright/test";
 
 const csrfCookie = "XSRF-TOKEN=e2e-csrf-token; Path=/; Secure; SameSite=Strict";
+
+test("stale edit retains draft and requires explicit reload before retry", async ({ page }) => {
+  let version = 7;
+  let title = "Initial title";
+  const submitted: string[] = [];
+  const item = () => ({ id: "workitem-1", version, organizationId: organization.id, projectId: project.id, projectKey: "SF", number: 1, key: "SF-1", title, type: "TASK", description: null, priority: "MEDIUM", workflowStateId: "state", workflowStateName: "TODO", workflowStateCategory: "TODO", reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: null, assigneeEmail: null, dueDate: null, createdAt: "2026-09-02T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", archivedAt: null, permissions: project.permissions, labels: [] });
+  await page.route("**/api/v1/projects/project-1/work-items*", route => route.fulfill({ json: [item()] }));
+  await page.route("**/api/v1/work-items/workitem-1", route => {
+    if (route.request().method() === "PATCH") {
+      const tag = route.request().headers()["if-match"];
+      submitted.push(tag);
+      if (tag !== `"${version}"`) return route.fulfill({ status: 412, json: { title: "Kayıt başka bir işlemle değişti." } });
+      title = route.request().postDataJSON().title;
+      version++;
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({ json: item() });
+  });
+  await page.goto("/app/acme/work-items/SF-1");
+  await page.getByRole("button", { name: "Düzenle" }).click();
+  await page.getByLabel("Başlık", { exact: true }).fill("My draft");
+  version = 8;
+  title = "Other user update";
+  await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+  await expect(page.getByText(/Taslağınız korunuyor/)).toBeVisible();
+  await expect(page.getByLabel("Başlık", { exact: true })).toHaveValue("My draft");
+  await expect(page.getByRole("button", { name: "Düzenle" })).toBeDisabled();
+  expect(submitted).toEqual(['"7"']);
+  await page.getByRole("button", { name: "Güncel sürümü yükle (taslağı kapat)" }).click();
+  await expect(page.getByRole("heading", { name: "Other user update" })).toBeVisible();
+  await page.getByRole("button", { name: "Düzenle" }).click();
+  await expect(page.getByLabel("Başlık", { exact: true })).toHaveValue("Other user update");
+  await page.getByLabel("Başlık", { exact: true }).fill("Reviewed edit");
+  await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reviewed edit" })).toBeVisible();
+  expect(submitted).toEqual(['"7"', '"8"']);
+});
 const organization = {
   id: "11111111-1111-1111-1111-111111111111",
   name: "ACME",

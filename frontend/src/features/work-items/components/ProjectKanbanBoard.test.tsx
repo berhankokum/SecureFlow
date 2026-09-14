@@ -41,7 +41,7 @@ const project: ProjectDetails = {
 function item(stateId = "backlog", permissions: WorkItem["permissions"] = ["workitem.transition", "workitem.approve"]): WorkItem {
   const state = workflow.states.find(candidate => candidate.id === stateId)!;
   return {
-    id: "item", organizationId: "org", projectId: "project", projectKey: "SF", number: 1, key: "SF-1",
+    id: "item", version: 7, organizationId: "org", projectId: "project", projectKey: "SF", number: 1, key: "SF-1",
     type: "TASK", title: "Transition safely", description: null, priority: "HIGH",
     workflowStateId: state.id, workflowStateName: state.name, workflowStateCategory: state.category,
     reporterId: "owner", reporterEmail: "owner@example.com", assigneeId: null, assigneeEmail: null,
@@ -64,7 +64,7 @@ describe("ProjectKanbanBoard", () => {
     await screen.findByText("Transition safely");
     await user.selectOptions(screen.getByLabelText("SF-1 hedef state"), "todo");
 
-    expect(transition).toHaveBeenCalledWith("item", "todo");
+    expect(transition).toHaveBeenCalledWith("item", "todo", 7);
     expect(within(screen.getByRole("region", { name: "TODO kolonu" })).getByText("Transition safely")).toBeInTheDocument();
   });
 

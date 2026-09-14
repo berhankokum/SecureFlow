@@ -158,7 +158,7 @@ public partial class WorkItemFlowTests
             owner.Client.PostAsJsonAsync(
                 $"/api/v1/work-items/{workItemId}/transition", new { toStateId = todoId }));
         Assert.Equal(1, responses.Count(response => response.StatusCode == HttpStatusCode.NoContent));
-        Assert.Equal(1, responses.Count(response => response.StatusCode == HttpStatusCode.Conflict));
+        Assert.Equal(1, responses.Count(response => response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.PreconditionFailed));
 
         var second = await CreateWorkItemAsync(owner.Client, projectId, "Archived item");
         var secondId = second.GetProperty("id").GetGuid();

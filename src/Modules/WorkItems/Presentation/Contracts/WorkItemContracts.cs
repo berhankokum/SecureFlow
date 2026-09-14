@@ -153,7 +153,8 @@ public sealed record WorkItemResponse(
     DateTimeOffset UpdatedAt,
     DateTimeOffset? ArchivedAt,
     IReadOnlyList<string> Permissions,
-    IReadOnlyList<WorkItemLabelSummary> Labels)
+    IReadOnlyList<WorkItemLabelSummary> Labels,
+    uint Version)
 {
     public static WorkItemResponse From(WorkItemSummary workItem) =>
         new(
@@ -179,5 +180,6 @@ public sealed record WorkItemResponse(
             workItem.UpdatedAt,
             workItem.ArchivedAt,
             workItem.Permissions,
-            workItem.Labels);
+            workItem.Labels,
+            workItem.Version);
 }

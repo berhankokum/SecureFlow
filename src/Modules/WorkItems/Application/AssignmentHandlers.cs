@@ -21,6 +21,7 @@ public static class AssignmentErrors
 
 public sealed class AssignmentHandler(
     IWorkItemsDbContext dbContext,
+    WorkItemPrecondition precondition,
     IActivityWriter activityWriter,
     INotificationWriter notificationWriter,
     IRealtimePublisher realtimePublisher,
@@ -94,6 +95,7 @@ public sealed class AssignmentHandler(
         }
 
         var previousAssigneeId = workItem.AssigneeId;
+        if (precondition.Check(workItem.Version) is { } versionError) return Result.Failure(versionError);
         var now = clock.UtcNow;
         Guid? activityId = null;
         if (workItem.Unassign(now))
@@ -180,6 +182,7 @@ public sealed class AssignmentHandler(
         }
 
         var previousAssigneeId = workItem.AssigneeId;
+        if (precondition.Check(workItem.Version) is { } versionError) return Result.Failure(versionError);
         var now = clock.UtcNow;
         Guid? activityId = null;
         Guid? notificationId = null;
@@ -282,7 +285,7 @@ public sealed class WorkItemOrganizationMembershipRemovalCleanup(
         // raises a serializable conflict; a snapshot-only SELECT could miss it.
         var workItems = await dbContext.WorkItems
             .FromSqlInterpolated(
-                $"""SELECT * FROM "WorkItems" WHERE "OrganizationId" = {organizationId} AND "AssigneeId" = {userId} AND "ArchivedAt" IS NULL FOR UPDATE""")
+                $"""SELECT *, xmin FROM "WorkItems" WHERE "OrganizationId" = {organizationId} AND "AssigneeId" = {userId} AND "ArchivedAt" IS NULL FOR UPDATE""")
             .ToArrayAsync(cancellationToken);
         var now = clock.UtcNow;
         foreach (var workItem in workItems)
