@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using NpgsqlTypes;
 using SecureFlow.Modules.WorkItems.Domain;
 
 namespace SecureFlow.Modules.WorkItems.Infrastructure.Configurations;
@@ -18,6 +19,9 @@ public sealed class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
         });
         builder.HasKey(workItem => workItem.Id);
         builder.Ignore(workItem => workItem.DomainEvents);
+        builder.Property<NpgsqlTsVector>("SearchVector")
+            .HasComputedColumnSql("to_tsvector('simple'::regconfig, coalesce(\"Title\", '') || ' ' || coalesce(\"Description\", ''))", stored: true);
+        builder.HasIndex("SearchVector").HasMethod("GIN");
 
         builder.Property(workItem => workItem.Type)
             .HasConversion(value => value.ToString().ToUpperInvariant(), value => Enum.Parse<WorkItemType>(value, true))

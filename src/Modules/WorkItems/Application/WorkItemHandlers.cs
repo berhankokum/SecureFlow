@@ -84,12 +84,14 @@ internal static class WorkItemModelMapper
     }
 
     public static async Task<ILookup<Guid, WorkItemLabelSummary>> LoadLabelsAsync(
-        IWorkItemsDbContext dbContext, Guid projectId, Guid? workItemId, CancellationToken cancellationToken)
+        IWorkItemsDbContext dbContext, Guid projectId, Guid? workItemId, CancellationToken cancellationToken,
+        Guid[]? pageIds = null)
     {
         var labels = await (
             from assignment in dbContext.WorkItemLabels.AsNoTracking()
             join label in dbContext.Labels.AsNoTracking() on assignment.LabelId equals label.Id
             where label.ProjectId == projectId && (workItemId == null || assignment.WorkItemId == workItemId)
+                && (pageIds == null || pageIds.Contains(assignment.WorkItemId))
             orderby label.Name
             select new
             {
@@ -251,8 +253,15 @@ public sealed class ListWorkItemsHandler(IWorkItemsDbContext dbContext, IUserDir
     public async Task<Result<IReadOnlyList<WorkItemSummary>>> HandleAsync(
         Guid projectId,
         Guid currentUserId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        WorkItemListQuery? query = null)
     {
+        query ??= new WorkItemListQuery();
+        if (!(await new WorkItemListQueryValidator().ValidateAsync(query, cancellationToken)).IsValid)
+        {
+            return Result.Failure<IReadOnlyList<WorkItemSummary>>(
+                new Error("WorkItems.InvalidQuery", "Geçersiz arama veya sayfalama parametresi."));
+        }
         var project = await dbContext.GetWorkItemProjectContextAsync(
             projectId,
             currentUserId,
@@ -262,11 +271,10 @@ public sealed class ListWorkItemsHandler(IWorkItemsDbContext dbContext, IUserDir
             return Result.Failure<IReadOnlyList<WorkItemSummary>>(WorkItemErrors.NotFound);
         }
 
-        var workItems = await dbContext.WorkItems
+        var source = dbContext.WorkItems
             .AsNoTracking()
-            .Where(workItem => workItem.ProjectId == projectId)
-            .OrderBy(workItem => workItem.ArchivedAt != null)
-            .ThenByDescending(workItem => workItem.Number)
+            .Where(workItem => workItem.ProjectId == projectId && workItem.OrganizationId == project.OrganizationId);
+        var workItems = await query.Apply(source, dbContext.WorkItemLabels)
             .ToArrayAsync(cancellationToken);
         var reporterEmails = await userDirectory.GetEmailsByUserIdsAsync(
             workItems.SelectMany(workItem => workItem.AssigneeId is { } assigneeId
@@ -275,7 +283,8 @@ public sealed class ListWorkItemsHandler(IWorkItemsDbContext dbContext, IUserDir
                 .Distinct().ToArray(),
             cancellationToken);
 
-        var labels = await WorkItemModelMapper.LoadLabelsAsync(dbContext, projectId, null, cancellationToken);
+        var labels = await WorkItemModelMapper.LoadLabelsAsync(
+            dbContext, projectId, null, cancellationToken, workItems.Select(item => item.Id).ToArray());
         var states = await WorkItemModelMapper.LoadStatesAsync(
             dbContext,
             workItems.Select(workItem => workItem.WorkflowStateId),

@@ -10,7 +10,7 @@ import { ApiError } from "@/lib/api/apiClient";
 import { toWorkItemPayload } from "../api/toWorkItemPayload";
 import { WorkItemForm } from "../components/WorkItemForm";
 import { WorkItemAssignmentSection } from "../components/WorkItemAssignmentSection";
-import { useArchiveWorkItem, useUpdateWorkItem, useWorkItem, useWorkItems } from "../hooks/useWorkItems";
+import { useArchiveWorkItem, useUpdateWorkItem, useWorkItem, useWorkItemByKey } from "../hooks/useWorkItems";
 import { useRealtimeProject } from "@/features/realtime/useRealtimeProject";
 import { WorkItemAttachmentsSection } from "@/features/attachments/components/WorkItemAttachmentsSection";
 
@@ -23,7 +23,7 @@ export function WorkItemDetailPage() {
   useRealtimeProject(project?.id ?? "");
   const projectQuery = useProject(project?.id ?? "");
   const membersQuery = useMembers(organization.id);
-  const workItemsQuery = useWorkItems(project?.id ?? "");
+  const workItemsQuery = useWorkItemByKey(project?.id ?? "", workItemKey);
   const summary = workItemsQuery.data?.find(item => item.key === workItemKey.toUpperCase());
   const workItemQuery = useWorkItem(summary?.id ?? "");
   const workItem = workItemQuery.data;

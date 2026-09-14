@@ -22,6 +22,7 @@ const project: ProjectDetails = {
 };
 
 vi.mock("../hooks/useWorkItems", () => ({
+  useWorkflow: () => ({ data: { states: [] } }),
   useWorkItems: () => ({ data: [{
     id: "workitem-1", organizationId: "organization-1", projectId: "project-1",
     projectKey: "SF", number: 1, key: "SF-1", type: "BUG", title: "Tenant isolation",
@@ -32,6 +33,7 @@ vi.mock("../hooks/useWorkItems", () => ({
   }], isLoading: false, isError: false }),
   useCreateWorkItem: () => ({ mutateAsync: create }),
 }));
+vi.mock("@/features/labels/hooks/useLabels", () => ({ useLabels: () => ({ data: [] }) }));
 vi.mock("@/features/auth/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ data: { id: "owner", email: "owner@example.com" } }),
 }));

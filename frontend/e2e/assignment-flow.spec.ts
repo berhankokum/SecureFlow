@@ -39,7 +39,10 @@ async function arrange(page: Page, role: "MANAGER" | "CONTRIBUTOR" | "VIEWER", a
     if (path === `/api/v1/organizations/${orgId}/projects`) return json([{ ...project, members: undefined }]);
     if (path === `/api/v1/organizations/${orgId}/members`) return json([]);
     if (path === "/api/v1/projects/project-1") return json(project);
-    if (path === "/api/v1/projects/project-1/work-items") return json([workItem()]);
+    if (path === "/api/v1/projects/project-1/work-items") {
+      const assignee = new URL(request.url()).searchParams.get("assignee");
+      return json(assignee && assignee !== assigneeId ? [] : [workItem()]);
+    }
     if (path === "/api/v1/projects/project-1/labels") return json([]);
     if (path === "/api/v1/work-items/item-1" && method === "GET") return json(workItem());
     if (path === "/api/v1/work-items/item-1/assign" && method === "POST") {

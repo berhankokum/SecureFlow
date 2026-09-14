@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { activityKeys } from "@/features/comments/hooks/useCollaboration";
 import { workItemApi } from "../api/workItemApi";
 import type { WorkItem, WorkItemPayload, WorkflowState } from "../api/types";
+import { useWorkItemListState } from "./useWorkItemListState";
 
 export const workItemKeys = {
   all: (projectId: string) => ["work-items", projectId] as const,
@@ -13,9 +14,10 @@ export const workflowKeys = {
 };
 
 export function useWorkItems(projectId: string) {
+  const { query } = useWorkItemListState();
   return useQuery({
-    queryKey: workItemKeys.all(projectId),
-    queryFn: () => workItemApi.list(projectId),
+    queryKey: query ? [...workItemKeys.all(projectId), query] : workItemKeys.all(projectId),
+    queryFn: () => workItemApi.list(projectId, query),
     enabled: projectId.length > 0,
   });
 }
@@ -25,6 +27,15 @@ export function useWorkItem(workItemId: string) {
     queryKey: workItemKeys.detail(workItemId),
     queryFn: () => workItemApi.get(workItemId),
     enabled: workItemId.length > 0,
+  });
+}
+
+export function useWorkItemByKey(projectId: string, key: string) {
+  const number = key.slice(key.lastIndexOf("-") + 1);
+  return useQuery({
+    queryKey: [...workItemKeys.all(projectId), "number", number],
+    queryFn: () => workItemApi.list(projectId, `number=${encodeURIComponent(number)}`),
+    enabled: !!projectId && /^[1-9]\d{0,18}$/.test(number),
   });
 }
 
@@ -90,7 +101,7 @@ interface TransitionVariables {
 }
 
 interface TransitionContext {
-  previousList: WorkItem[] | undefined;
+  previousLists: [readonly unknown[], WorkItem[] | undefined][];
   previousDetail: WorkItem | undefined;
 }
 
@@ -103,7 +114,7 @@ export function useTransitionWorkItem(projectId: string) {
         queryClient.cancelQueries({ queryKey: workItemKeys.all(projectId) }),
         queryClient.cancelQueries({ queryKey: workItemKeys.detail(workItemId) }),
       ]);
-      const previousList = queryClient.getQueryData<WorkItem[]>(workItemKeys.all(projectId));
+      const previousLists = queryClient.getQueriesData<WorkItem[]>({ queryKey: workItemKeys.all(projectId) });
       const previousDetail = queryClient.getQueryData<WorkItem>(workItemKeys.detail(workItemId));
       const applyState = (item: WorkItem): WorkItem => item.id === workItemId
         ? {
@@ -113,20 +124,18 @@ export function useTransitionWorkItem(projectId: string) {
             workflowStateCategory: toState.category,
           }
         : item;
-      queryClient.setQueryData<WorkItem[]>(
-        workItemKeys.all(projectId),
+      queryClient.setQueriesData<WorkItem[]>(
+        { queryKey: workItemKeys.all(projectId) },
         current => current?.map(applyState),
       );
       queryClient.setQueryData<WorkItem>(
         workItemKeys.detail(workItemId),
         current => current ? applyState(current) : current,
       );
-      return { previousList, previousDetail };
+      return { previousLists, previousDetail };
     },
     onError: (_error, { workItemId }, context) => {
-      if (context?.previousList) {
-        queryClient.setQueryData(workItemKeys.all(projectId), context.previousList);
-      }
+      context?.previousLists.forEach(([key, items]) => queryClient.setQueryData(key, items));
       if (context?.previousDetail) {
         queryClient.setQueryData(workItemKeys.detail(workItemId), context.previousDetail);
       }
