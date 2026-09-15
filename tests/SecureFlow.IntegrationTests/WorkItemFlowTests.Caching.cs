@@ -131,6 +131,7 @@ public partial class WorkItemFlowTests
             offlineOwner.DefaultRequestHeaders.Add("Cookie", owner.AuthCookie);
             offlineOwner.DefaultRequestHeaders.Add("X-CSRF-TOKEN", await GetCsrfTokenAsync(offlineOwner));
             Assert.Equal(HttpStatusCode.OK, (await offlineOwner.GetAsync($"/api/v1/organizations/{org}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await offlineOwner.GetAsync($"/api/v1/organizations/{org}/dashboard")).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await offlineOwner.GetAsync("/health/ready")).StatusCode);
             Assert.Equal("Degraded", await offlineOwner.GetStringAsync("/health/cache"));
             Assert.Equal(HttpStatusCode.NoContent, (await offlineOwner.PatchAsJsonAsync(
