@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using SecureFlow.Modules.Identity.Domain;
 using SecureFlow.SharedKernel;
+using SecureFlow.Contracts.Audit;
 
 namespace SecureFlow.Modules.Identity.Application.Login;
 
 public sealed class LoginHandler(
+    IAuditWriter auditWriter,
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
     ILogger<LoginHandler> logger)
@@ -19,6 +21,7 @@ public sealed class LoginHandler(
 
         if (user is null)
         {
+            await auditWriter.LoginFailureAsync(cancellationToken);
             logger.LogWarning("Login attempt failed: no user for the given email.");
             return Result.Failure(InvalidCredentials);
         }
@@ -31,6 +34,7 @@ public sealed class LoginHandler(
 
         if (!result.Succeeded)
         {
+            await auditWriter.LoginFailureAsync(cancellationToken);
             logger.LogWarning("Login attempt failed for user {UserId}.", user.Id);
             return Result.Failure(InvalidCredentials);
         }

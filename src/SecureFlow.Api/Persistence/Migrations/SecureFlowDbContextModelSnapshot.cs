@@ -87,6 +87,58 @@ namespace SecureFlow.Api.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SecureFlow.Modules.Audit.Domain.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<string>("Metadata")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResourceType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Timestamp", "Id");
+
+                    b.ToTable("AuditLogs", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AuditLogs_Metadata", "jsonb_typeof(\"Metadata\") = 'object'");
+
+                            t.HasCheckConstraint("CK_AuditLogs_Scope", "(\"OrganizationId\" IS NULL) = (\"Action\" IN ('LOGIN_FAILURE', 'PASSWORD_CHANGED'))");
+                        });
+                });
+
             modelBuilder.Entity("SecureFlow.Modules.Collaboration.Domain.ActivityEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1126,6 +1178,14 @@ namespace SecureFlow.Api.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SecureFlow.Modules.Audit.Domain.AuditLog", b =>
+                {
+                    b.HasOne("SecureFlow.Modules.Organizations.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SecureFlow.Modules.Collaboration.Domain.ActivityEvent", b =>

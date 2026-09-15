@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using SecureFlow.Modules.Identity.Domain;
 using SecureFlow.SharedKernel;
+using SecureFlow.Contracts.Audit;
 
 namespace SecureFlow.Modules.Identity.Application.ResetPassword;
 
 public sealed class ResetPasswordHandler(
+    IAuditWriter auditWriter,
     UserManager<ApplicationUser> userManager,
     ILogger<ResetPasswordHandler> logger)
 {
@@ -32,6 +34,7 @@ public sealed class ResetPasswordHandler(
             return Result.Failure(GenericFailure);
         }
 
+        auditWriter.StagePasswordChanged(user.Id);
         var result = await userManager.ResetPasswordAsync(user, decodedToken, command.NewPassword);
 
         if (!result.Succeeded)

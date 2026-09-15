@@ -98,8 +98,10 @@ public partial class WorkItemFlowTests
         loser.Update(loser.Type, "Loser", null, loser.Priority, null, DateOnly.FromDateTime(now.UtcDateTime), now);
         await left.SaveChangesAsync();
         var count = await left.OutboxMessages.CountAsync();
+        var auditCount = await left.AuditLogs.CountAsync(log => log.ResourceId == id);
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => right.SaveChangesAsync());
         Assert.Equal(count, await left.OutboxMessages.CountAsync());
+        Assert.Equal(auditCount, await left.AuditLogs.CountAsync(log => log.ResourceId == id));
         Assert.Equal("Winner", (await left.WorkItems.AsNoTracking().SingleAsync(item => item.Id == id)).Title);
     }
 }

@@ -20,6 +20,8 @@ using SecureFlow.Modules.Collaboration;
 using SecureFlow.Modules.Notifications;
 using SecureFlow.Modules.Files;
 using SecureFlow.Modules.Outbox;
+using SecureFlow.Modules.Audit;
+using SecureFlow.Contracts.Audit;
 using SecureFlow.Contracts.Outbox;
 using Serilog;
 
@@ -48,6 +50,8 @@ try
         .ReadFrom.Services(services));
 
     builder.Services.AddControllers();
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<IAuditRequestContext, AuditRequestContext>();
     builder.Services.AddSecureFlowCaching(builder.Configuration);
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails();
@@ -85,6 +89,7 @@ try
     builder.Services.AddNotificationsModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddFilesModule<SecureFlowDbContext>(builder.Configuration);
     builder.Services.AddOutboxModule<SecureFlowDbContext>(builder.Configuration);
+    builder.Services.AddAuditModule<SecureFlowDbContext>();
     builder.Services.AddAuthorization();
 
     builder.Services.AddRateLimiter(options =>
