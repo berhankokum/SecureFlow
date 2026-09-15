@@ -72,6 +72,7 @@ export function RealtimeProvider({
   const refetchAfterReconnect = useCallback(() => {
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: projectKeys.all(organizationId) }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", organizationId] }),
       queryClient.invalidateQueries({ queryKey: ["work-items"] }),
       queryClient.invalidateQueries({ queryKey: ["comments"] }),
       queryClient.invalidateQueries({ queryKey: ["activity"] }),
@@ -94,6 +95,7 @@ export function RealtimeProvider({
           || !rememberEvent(processedEvents, message?.eventId)) return;
       void Promise.all([
         queryClient.invalidateQueries({ queryKey: workItemKeys.all(message.projectId) }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard", organizationId] }),
         queryClient.invalidateQueries({ queryKey: workItemKeys.detail(message.workItemId) }),
         queryClient.invalidateQueries({ queryKey: activityKeys.all(message.workItemId) }),
       ]);
@@ -103,6 +105,7 @@ export function RealtimeProvider({
           || !rememberEvent(processedEvents, message?.eventId)) return;
       void Promise.all([
         queryClient.invalidateQueries({ queryKey: commentKeys.all(message.workItemId) }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard", organizationId] }),
         queryClient.invalidateQueries({ queryKey: activityKeys.all(message.workItemId) }),
       ]);
     });

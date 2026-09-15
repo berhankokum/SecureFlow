@@ -52,6 +52,7 @@ try
     builder.Services.AddControllers();
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<IAuditRequestContext, AuditRequestContext>();
+    builder.Services.AddScoped<SecureFlow.Modules.Organizations.Application.Dashboard.IDashboardReader, OrganizationDashboardReader>();
     builder.Services.AddSecureFlowCaching(builder.Configuration);
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails();
