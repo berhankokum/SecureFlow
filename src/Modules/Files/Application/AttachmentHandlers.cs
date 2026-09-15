@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SecureFlow.Contracts.Activity;
+using SecureFlow.Contracts.Audit;
 using SecureFlow.Contracts.Authorization;
 using SecureFlow.Contracts.Identity;
 using SecureFlow.Contracts.Outbox;
@@ -35,6 +36,7 @@ public sealed class FileScopeHandler(IFilesDbContext dbContext)
 }
 
 public sealed class AttachmentHandlers(
+    IAuditWriter auditWriter,
     IFilesDbContext dbContext,
     IObjectStorage objectStorage,
     IUserDirectory userDirectory,
@@ -192,9 +194,18 @@ public sealed class AttachmentHandlers(
         try
         {
             var storedObject = await objectStorage.GetAsync(attachment.StorageKey, cancellationToken);
-            return storedObject is null
-                ? Result.Failure<AttachmentDownload>(FileErrors.StorageUnavailable)
-                : Result.Success(new AttachmentDownload(
+            if (storedObject is null) return Result.Failure<AttachmentDownload>(FileErrors.StorageUnavailable);
+            try
+            {
+                auditWriter.StageAttachmentDownloaded(attachment.OrganizationId, attachment.Id);
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch
+            {
+                await storedObject.Content.DisposeAsync();
+                throw;
+            }
+            return Result.Success(new AttachmentDownload(
                     storedObject.Content,
                     attachment.ContentType,
                     attachment.Size,

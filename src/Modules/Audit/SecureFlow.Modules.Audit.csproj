@@ -2,6 +2,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\SecureFlow.SharedKernel\SecureFlow.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\SecureFlow.Contracts\SecureFlow.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="FluentValidation" Version="12.1.1" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -79,6 +79,11 @@ public partial class MembershipInvitationFlowTests(AuthWebApplicationFactory fac
         var membership = await verificationDb.OrganizationMembers.SingleAsync(member =>
             member.OrganizationId == organizationId && member.UserId == invited.UserId);
         Assert.Equal(owner.UserId, membership.InvitedBy);
+        var audit = await verificationDb.AuditLogs.Where(log => log.OrganizationId == organizationId).ToArrayAsync();
+        Assert.Equal(owner.UserId, Assert.Single(audit, log => log.Action == "MEMBER_INVITED").ActorUserId);
+        Assert.Equal(invited.UserId, Assert.Single(audit, log => log.Action == "INVITATION_ACCEPTED").ActorUserId);
+        Assert.Equal(invited.UserId, Assert.Single(audit, log => log.Action == "MEMBER_ADDED" && log.ResourceId == invited.UserId).ActorUserId);
+        Assert.All(audit, log => { Assert.DoesNotContain(token, log.Metadata); Assert.DoesNotContain(invited.Email, log.Metadata); });
     }
 
     [Fact]
@@ -105,6 +110,12 @@ public partial class MembershipInvitationFlowTests(AuthWebApplicationFactory fac
         var revoke = await owner.Client.DeleteAsync(
             $"/api/v1/organizations/{organizationId}/invitations/{invitationId}");
         Assert.Equal(HttpStatusCode.NoContent, revoke.StatusCode);
+        using (var auditScope = factory.Services.CreateScope())
+        {
+            var auditDb = auditScope.ServiceProvider.GetRequiredService<SecureFlowDbContext>();
+            Assert.Equal(owner.UserId, (await auditDb.AuditLogs.SingleAsync(log => log.ResourceId == invitationId && log.Action == "INVITATION_REVOKED")).ActorUserId);
+            Assert.False(await auditDb.AuditLogs.AnyAsync(log => log.ResourceId == invitationId && log.Action == "INVITATION_ACCEPTED"));
+        }
 
         var revokedAccept = await invited.Client.PostAsync($"/api/v1/invitations/{token}/accept", null);
         Assert.Equal(HttpStatusCode.Conflict, revokedAccept.StatusCode);

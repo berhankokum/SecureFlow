@@ -23,6 +23,9 @@ using SecureFlow.Modules.Outbox.Domain;
 using SecureFlow.Contracts.Outbox;
 using SecureFlow.Contracts.Caching;
 using System.Text.Json;
+using SecureFlow.Contracts.Audit;
+using SecureFlow.Modules.Audit.Application;
+using SecureFlow.Modules.Audit.Domain;
 
 namespace SecureFlow.Api.Persistence;
 
@@ -32,10 +35,11 @@ namespace SecureFlow.Api.Persistence;
 /// (Organization/Project roller ASP.NET Identity Role'ü kullanmaz, bkz. SecureFlow-Final.md §8).
 /// Her modül kendi entity configuration'larını ApplyConfigurationsFromAssembly ile katar.
 /// </summary>
-public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options, PermissionCache permissionCache)
+public sealed partial class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> options, PermissionCache permissionCache,
+    IAuditRequestContext? auditContext = null)
     : IdentityUserContext<ApplicationUser, Guid>(options), IOrganizationsDbContext, ITeamsDbContext,
         IProjectsDbContext, IWorkItemsDbContext, ICollaborationDbContext, INotificationsDbContext,
-        IFilesDbContext, IOutboxDbContext
+        IFilesDbContext, IOutboxDbContext, IAuditDbContext
 {
     private static readonly JsonSerializerOptions OutboxJsonOptions = new(JsonSerializerDefaults.Web);
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -78,9 +82,11 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
 
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        await CaptureAuditEventsAsync(cancellationToken);
         await CaptureOutboxEventsAsync(cancellationToken);
         return await base.SaveChangesAsync(cancellationToken);
     }
@@ -484,6 +490,9 @@ public sealed class SecureFlowDbContext(DbContextOptions<SecureFlowDbContext> op
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Notification).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Attachment).Assembly);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OutboxMessage).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuditLog).Assembly);
+        modelBuilder.Entity<AuditLog>().HasOne<Organization>().WithMany()
+            .HasForeignKey(log => log.OrganizationId).OnDelete(DeleteBehavior.Restrict);
 
         // Cross-module user references composition root'ta kurulur; domain modülleri
         // birbirlerinin assembly'lerine bağımlı hale getirilmez.

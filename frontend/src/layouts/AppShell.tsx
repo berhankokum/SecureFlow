@@ -12,6 +12,7 @@ export function AppShell() {
   const { data: user } = useCurrentUser();
   const organization = useCurrentOrganization();
   const canManageOrganization = usePermission(permissions.organizationManage);
+  const canViewAudit = usePermission(permissions.auditView);
   const logoutMutation = useLogout();
   const navigate = useNavigate();
 
@@ -85,6 +86,7 @@ export function AppShell() {
                 Ayarlar
               </NavLink>
             ) : null}
+            {canViewAudit ? <NavLink to={`/app/${organization.slug}/audit`} className={({ isActive }) => `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`}>Audit kayıtları</NavLink> : null}
           </nav>
         </aside>
         <main className="flex-1 p-6">

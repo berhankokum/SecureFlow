@@ -21,6 +21,7 @@ import { ProjectsPage } from "@/features/projects/pages/ProjectsPage";
 import { ProjectDetailPage } from "@/features/projects/pages/ProjectDetailPage";
 import { WorkItemDetailPage } from "@/features/work-items/pages/WorkItemDetailPage";
 import { NotificationsPage } from "@/features/notifications/pages/NotificationsPage";
+import { AuditPage } from "@/features/audit/AuditPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="dashboard" replace /> },
               { path: "dashboard", element: <OrganizationDashboardPage /> },
+              {
+                element: <PermissionRoute permission={permissions.auditView} />,
+                children: [{ path: "audit", element: <AuditPage /> }],
+              },
               {
                 element: <PermissionRoute permission={permissions.memberView} />,
                 children: [
