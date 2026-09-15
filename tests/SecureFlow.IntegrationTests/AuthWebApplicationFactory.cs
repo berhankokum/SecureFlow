@@ -30,7 +30,7 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, 
         .Build();
 
     private readonly IContainer _objectStorage = new ContainerBuilder(
-            "minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e")
+            "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e")
         .WithEnvironment("MINIO_ROOT_USER", "secureflow_tests")
         .WithEnvironment("MINIO_ROOT_PASSWORD", "secureflow_tests_secret")
         .WithCommand("server", "/data", "--console-address", ":9001")
