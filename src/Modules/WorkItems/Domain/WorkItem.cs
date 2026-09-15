@@ -45,6 +45,7 @@ public sealed class WorkItem : AggregateRoot
     public Guid ProjectId { get; private set; }
 
     public long Number { get; private set; }
+    public uint Version { get; private set; }
 
     public WorkItemType Type { get; private set; }
 

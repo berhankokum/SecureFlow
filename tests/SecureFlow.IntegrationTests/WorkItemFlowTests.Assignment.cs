@@ -276,7 +276,9 @@ public partial class WorkItemFlowTests
         var responses = await Task.WhenAll(Enumerable.Range(0, 10).Select(index =>
             owner.Client.PostAsJsonAsync($"/api/v1/work-items/{itemId}/assign",
                 new { assigneeId = index % 2 == 0 ? first.UserId : second.UserId })));
-        Assert.All(responses, response => Assert.Equal(HttpStatusCode.NoContent, response.StatusCode));
+        Assert.Contains(responses, response => response.StatusCode == HttpStatusCode.NoContent);
+        Assert.All(responses, response => Assert.Contains(response.StatusCode,
+            new[] { HttpStatusCode.NoContent, HttpStatusCode.PreconditionFailed }));
         var detail = await owner.Client.GetFromJsonAsync<JsonElement>($"/api/v1/work-items/{itemId}");
         Assert.Contains(detail.GetProperty("assigneeId").GetGuid(), new[] { first.UserId, second.UserId });
     }

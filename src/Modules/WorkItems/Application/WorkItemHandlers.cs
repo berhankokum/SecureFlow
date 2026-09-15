@@ -62,7 +62,8 @@ internal static class WorkItemModelMapper
             workItem.UpdatedAt,
             workItem.ArchivedAt,
             project.Permissions,
-            labels ?? []);
+            labels ?? [],
+            workItem.Version);
 
     public static async Task<IReadOnlyDictionary<Guid, WorkflowStateSummary>> LoadStatesAsync(
         IWorkItemsDbContext dbContext,
@@ -351,6 +352,7 @@ public sealed class GetWorkItemHandler(IWorkItemsDbContext dbContext, IUserDirec
 
 public sealed class UpdateWorkItemHandler(
     IWorkItemsDbContext dbContext,
+    WorkItemPrecondition precondition,
     IClock clock)
 {
     public async Task<Result> HandleAsync(UpdateWorkItemCommand command, CancellationToken cancellationToken)
@@ -400,6 +402,7 @@ public sealed class UpdateWorkItemHandler(
             return Result.Failure(WorkItemErrors.Archived);
         }
 
+        if (precondition.Check(workItem.Version) is { } versionError) return Result.Failure(versionError);
         var now = clock.UtcNow;
         var currentDate = DateOnly.FromDateTime(now.UtcDateTime);
         if (command.DueDate != workItem.DueDate && command.DueDate < currentDate)
@@ -423,6 +426,7 @@ public sealed class UpdateWorkItemHandler(
 
 public sealed class ArchiveWorkItemHandler(
     IWorkItemsDbContext dbContext,
+    WorkItemPrecondition precondition,
     IClock clock)
 {
     public async Task<Result> HandleAsync(
@@ -471,6 +475,7 @@ public sealed class ArchiveWorkItemHandler(
             item => item.Id == workItemId,
             cancellationToken);
         var now = clock.UtcNow;
+        if (precondition.Check(workItem.Version) is { } versionError) return Result.Failure(versionError);
         workItem.Archive(now);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

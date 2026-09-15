@@ -7,15 +7,15 @@ export const workItemApi = {
   getWorkflow: (projectId: string): Promise<Workflow> => apiClient.get(`/projects/${projectId}/workflow`),
   create: (projectId: string, payload: WorkItemPayload): Promise<WorkItem> =>
     apiClient.post(`/projects/${projectId}/work-items`, payload),
-  update: (workItemId: string, payload: WorkItemPayload): Promise<void> =>
-    apiClient.patch(`/work-items/${workItemId}`, payload),
-  archive: (workItemId: string): Promise<void> => apiClient.post(`/work-items/${workItemId}/archive`),
-  assign: (workItemId: string, assigneeId: string): Promise<void> =>
-    apiClient.post(`/work-items/${workItemId}/assign`, { assigneeId }),
-  selfAssign: (workItemId: string): Promise<void> =>
-    apiClient.post(`/work-items/${workItemId}/self-assign`),
-  unassign: (workItemId: string): Promise<void> =>
-    apiClient.delete(`/work-items/${workItemId}/assignment`),
-  transition: (workItemId: string, toStateId: string): Promise<void> =>
-    apiClient.post(`/work-items/${workItemId}/transition`, { toStateId }),
+  update: (workItemId: string, payload: WorkItemPayload, version?: number): Promise<void> =>
+    apiClient.patch(`/work-items/${workItemId}`, payload, version),
+  archive: (workItemId: string, version?: number): Promise<void> => apiClient.post(`/work-items/${workItemId}/archive`, undefined, version),
+  assign: (workItemId: string, assigneeId: string, version?: number): Promise<void> =>
+    apiClient.post(`/work-items/${workItemId}/assign`, { assigneeId }, version),
+  selfAssign: (workItemId: string, version?: number): Promise<void> =>
+    apiClient.post(`/work-items/${workItemId}/self-assign`, undefined, version),
+  unassign: (workItemId: string, version?: number): Promise<void> =>
+    apiClient.delete(`/work-items/${workItemId}/assignment`, version),
+  transition: (workItemId: string, toStateId: string, version?: number): Promise<void> =>
+    apiClient.post(`/work-items/${workItemId}/transition`, { toStateId }, version),
 };

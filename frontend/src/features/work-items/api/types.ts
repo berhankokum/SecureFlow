@@ -28,6 +28,7 @@ export interface Workflow {
 }
 
 export interface WorkItem {
+  version?: number;
   id: string;
   organizationId: string;
   projectId: string;

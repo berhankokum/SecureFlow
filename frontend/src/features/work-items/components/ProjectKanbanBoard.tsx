@@ -46,7 +46,7 @@ export function ProjectKanbanBoard({ project }: { project: ProjectDetails }) {
     if (!transition || !canUseTransition(item, transition, project.archivedAt !== null)) return;
     setError(null);
     try {
-      await transitionMutation.mutateAsync({ workItemId: item.id, toState: target });
+      await transitionMutation.mutateAsync({ workItemId: item.id, toState: target, version: item.version });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Workflow transition tamamlanamadı.");
     }

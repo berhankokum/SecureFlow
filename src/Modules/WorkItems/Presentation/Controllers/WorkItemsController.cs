@@ -12,7 +12,9 @@ namespace SecureFlow.Modules.WorkItems.Presentation.Controllers;
 [ApiController]
 [Route("api/v1/work-items/{workItemId:guid}")]
 [Authorize]
+[TypeFilter(typeof(WorkItemConcurrencyExceptionFilter))]
 public sealed class WorkItemsController(
+    WorkItemPrecondition precondition,
     IAuthorizationService authorizationService,
     FindWorkItemScopeHandler findScopeHandler,
     GetWorkItemHandler getHandler,
@@ -39,6 +41,7 @@ public sealed class WorkItemsController(
         }
 
         var result = await getHandler.HandleAsync(workItemId, currentUserId, cancellationToken);
+        if (result.IsSuccess) Response.Headers.ETag = WorkItemPrecondition.ETag(result.Value.Version);
         return result.IsSuccess
             ? Ok(WorkItemResponse.From(result.Value))
             : WorkItemErrorResult.Map(this, result.Error);
@@ -227,6 +230,9 @@ public sealed class WorkItemsController(
             cancellationToken);
     }
 
-    private bool TryGetCurrentUserId(out Guid userId) =>
-        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+    private bool TryGetCurrentUserId(out Guid userId)
+    {
+        precondition.Header = Request.Headers.IfMatch.ToString();
+        return Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+    }
 }
