@@ -25,6 +25,7 @@ using SecureFlow.Contracts.Audit;
 using SecureFlow.Contracts.Outbox;
 using Serilog;
 using SecureFlow.Api.Observability;
+using SecureFlow.Api.Security;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new SafeLogFormatter())
@@ -52,6 +53,8 @@ try
         .WriteTo.Console(new SafeLogFormatter()));
 
     builder.Services.AddFlowTelemetry(builder.Configuration);
+    builder.Services.AddFlowSecurity(builder.Configuration);
+    builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
     builder.Services.AddControllers();
     builder.Services.AddHttpContextAccessor();
@@ -136,7 +139,17 @@ try
         });
     });
 
-    builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
+    builder.Services.AddAntiforgery(options =>
+    {
+        options.HeaderName = "X-CSRF-TOKEN";
+        // The existing local Vite proxy talks HTTP to the Development API.
+        // Antiforgery rejects token creation on HTTP when SecurePolicy is Always.
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.HttpOnly = true;
+    });
 
     builder.Services
         .AddHealthChecks()
@@ -148,9 +161,14 @@ try
     // değerlendirmesinden önce uygulanır. Güvenilen proxy listesi production
     // deployment konfigürasyonunda açıkça sınırlandırılır.
     app.UseForwardedHeaders();
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
 
     app.UseRouting();
     app.UseMiddleware<RequestTelemetryMiddleware>();
+    app.UseMiddleware<SecurityHeadersMiddleware>();
     app.UseExceptionHandler();
 
     if (app.Environment.IsDevelopment())
@@ -159,6 +177,7 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseCors();
 
     app.UseAuthentication();
     app.UseRateLimiter();

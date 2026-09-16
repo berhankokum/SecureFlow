@@ -1,0 +1,5 @@
+root = true
+
+[*.cs]
+# Security-specific .NET analyzers are explicit CI gates, not optional suggestions.
+dotnet_analyzer_diagnostic.category-Security.severity = error

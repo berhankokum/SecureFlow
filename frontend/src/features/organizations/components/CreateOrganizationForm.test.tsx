@@ -42,6 +42,7 @@ describe("CreateOrganizationForm", () => {
     renderWithProviders(<CreateOrganizationForm />);
 
     await user.type(screen.getByLabelText("Organization adı"), "ACME");
+    // oxlint-disable-next-line no-script-url -- intentional rejected XSS payload
     await user.type(screen.getByLabelText(/Logo adresi/), "javascript:alert(1)");
     await user.click(screen.getByRole("button", { name: "Organization oluştur" }));
 

@@ -4,13 +4,18 @@ export class ApiError extends Error {
   readonly status: number;
   readonly errors?: ValidationErrors;
   readonly traceId?: string;
+  readonly retryAfterSeconds?: number;
 
-  constructor(status: number, message: string, errors?: ValidationErrors, traceId?: string) {
+  constructor(status: number, message: string, errors?: ValidationErrors, traceId?: string, retryAfterSeconds?: number) {
     const validTraceId = traceId && /^[a-f0-9]{32}$/i.test(traceId) ? traceId : undefined;
-    super(validTraceId ? `${message} (Referans: ${validTraceId})` : message);
+    const retry = status === 429 && Number.isInteger(retryAfterSeconds) && retryAfterSeconds! > 0 && retryAfterSeconds! <= 3600
+      ? retryAfterSeconds : undefined;
+    const readableMessage = retry ? `${message} ${retry} saniye sonra tekrar deneyin.` : message;
+    super(validTraceId ? `${readableMessage} (Referans: ${validTraceId})` : readableMessage);
     this.status = status;
     this.errors = errors;
     this.traceId = validTraceId;
+    this.retryAfterSeconds = retry;
   }
 }
 
@@ -19,7 +24,7 @@ export class ApiError extends Error {
  * { title, status, errors?: { field: string[] } }
  */
 export async function parseErrorResponse(response: Response): Promise<ApiError> {
-  let title = `İstek başarısız oldu (${response.status}).`;
+  let title = response.status === 429 ? "Çok fazla istek gönderdiniz." : `İstek başarısız oldu (${response.status}).`;
   let errors: ValidationErrors | undefined;
   let traceId = response.headers.get("X-Trace-Id") ?? undefined;
 
@@ -36,5 +41,7 @@ export async function parseErrorResponse(response: Response): Promise<ApiError> 
     // Body JSON değilse varsayılan mesaj kullanılır.
   }
 
-  return new ApiError(response.status, title, errors, traceId);
+  const retryHeader = response.headers.get("Retry-After");
+  const retry = retryHeader && /^\d{1,4}$/.test(retryHeader) ? Number(retryHeader) : undefined;
+  return new ApiError(response.status, title, errors, traceId, retry);
 }

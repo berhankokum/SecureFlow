@@ -40,6 +40,9 @@ public partial class WorkItemFlowTests
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);
         Assert.Equal("application/pdf", download.Content.Headers.ContentType?.MediaType);
         Assert.Equal("evidence.pdf", download.Content.Headers.ContentDisposition?.FileNameStar);
+        Assert.Equal("attachment", download.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.True(download.Headers.CacheControl?.NoStore);
+        Assert.Equal("nosniff", download.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.Equal(fileBytes, await download.Content.ReadAsByteArrayAsync());
 
         var activity = await owner.Client.GetFromJsonAsync<JsonElement[]>(

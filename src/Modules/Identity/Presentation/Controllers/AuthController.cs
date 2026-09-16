@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SecureFlow.Contracts.Filters;
 using SecureFlow.Modules.Identity.Application.ConfirmEmail;
 using SecureFlow.Modules.Identity.Application.ForgotPassword;
@@ -31,6 +32,7 @@ public sealed class AuthController(
     IValidator<ResetPasswordRequest> resetPasswordValidator) : ControllerBase
 {
     [HttpPost("register")]
+    [EnableRateLimiting("auth-email")]
     [AllowAnonymous]
     [ValidateAntiforgery]
     public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
@@ -63,6 +65,7 @@ public sealed class AuthController(
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     [ValidateAntiforgery]
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken cancellationToken)
@@ -89,6 +92,7 @@ public sealed class AuthController(
     }
 
     [HttpPost("confirm-email")]
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     [ValidateAntiforgery]
     public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest request, CancellationToken cancellationToken)
@@ -107,6 +111,7 @@ public sealed class AuthController(
     }
 
     [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth-email")]
     [AllowAnonymous]
     [ValidateAntiforgery]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken cancellationToken)
@@ -123,6 +128,7 @@ public sealed class AuthController(
     }
 
     [HttpPost("reset-password")]
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     [ValidateAntiforgery]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken)

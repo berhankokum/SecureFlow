@@ -31,7 +31,15 @@ public sealed class RedisCacheTests(AuthWebApplicationFactory factory)
         var ttl = await connection.GetDatabase().KeyTimeToLiveAsync(address.Key("v1"));
         Assert.NotNull(ttl);
         Assert.InRange(ttl!.Value.TotalMilliseconds, 1, 1000);
-        await Task.Delay(1100);
+        // Docker's clock/scheduling can lag the host under CI load. Observe actual
+        // expiry without reading/refilling the cache; keep a bounded failure timeout.
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (await connection.GetDatabase().KeyExistsAsync(address.Key("v1"))
+            && deadline.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            await Task.Delay(100);
+        }
+        Assert.False(await connection.GetDatabase().KeyExistsAsync(address.Key("v1")));
         await cache.GetOrCreateAsync(address, "v1", Load);
         Assert.Equal(2, calls);
     }
