@@ -105,7 +105,7 @@ async function upload<TResponse>(
 
       void parseErrorResponse(new Response(xhr.responseText, {
         status: xhr.status,
-        headers: { "Content-Type": xhr.getResponseHeader("Content-Type") ?? "application/problem+json" },
+        headers: { "Content-Type": xhr.getResponseHeader("Content-Type") ?? "application/problem+json", "X-Trace-Id": xhr.getResponseHeader("X-Trace-Id") ?? "" },
       })).then(reject);
     };
     const form = new FormData();

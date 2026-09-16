@@ -19,6 +19,7 @@ public sealed class NotificationEmailDeliveryProcessor(
 {
     public async Task<int> DiscoverAsync(int batchSize, CancellationToken cancellationToken = default)
     {
+        using var telemetry = SecureFlow.Contracts.Observability.FlowTelemetry.StartJob("email_discovery");
         var notificationIds = await dbContext.Notifications
             .AsNoTracking()
             .Where(notification => !dbContext.NotificationEmailDeliveries
@@ -54,11 +55,14 @@ public sealed class NotificationEmailDeliveryProcessor(
             }
         }
 
+        telemetry.Complete();
         return discoveredCount;
     }
 
     public async Task<int> DeliverAsync(int batchSize, CancellationToken cancellationToken = default)
     {
+        using var telemetry = SecureFlow.Contracts.Observability.FlowTelemetry.StartJob("email_delivery");
+        var failed = false;
         var processedCount = 0;
 
         for (var index = 0; index < batchSize; index++)
@@ -101,6 +105,7 @@ public sealed class NotificationEmailDeliveryProcessor(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
+                failed = true;
                 var errorCode = exception.GetType().Name;
                 delivery.RecordFailure(errorCode, clock.UtcNow);
                 logger.LogWarning(
@@ -115,6 +120,7 @@ public sealed class NotificationEmailDeliveryProcessor(
             processedCount++;
         }
 
+        if (!failed) telemetry.Complete();
         return processedCount;
     }
 

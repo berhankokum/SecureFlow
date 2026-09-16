@@ -17,6 +17,7 @@ public sealed class DeadlineReminderProcessor(
 {
     public async Task<int> ProcessAsync(int batchSize, CancellationToken cancellationToken = default)
     {
+        using var telemetry = SecureFlow.Contracts.Observability.FlowTelemetry.StartJob("deadline_reminders");
         var now = clock.UtcNow;
         var dueDate = DateOnly.FromDateTime(now.UtcDateTime).AddDays(1);
         var createdCount = 0;
@@ -105,6 +106,7 @@ public sealed class DeadlineReminderProcessor(
             }
         }
 
+        telemetry.Complete();
         return createdCount;
     }
 

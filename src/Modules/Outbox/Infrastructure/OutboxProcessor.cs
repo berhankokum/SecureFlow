@@ -27,6 +27,8 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory, IOptions<
 
     public async Task<int> ProcessBatchAsync(CancellationToken cancellationToken)
     {
+        using var telemetry = SecureFlow.Contracts.Observability.FlowTelemetry.StartJob("outbox");
+        var failed = false;
         var processed = 0;
         for (; processed < _options.BatchSize; processed++)
         {
@@ -41,7 +43,7 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory, IOptions<
                 ORDER BY "NextAttemptAt", "OccurredAt"
                 FOR UPDATE SKIP LOCKED LIMIT 1
                 """).SingleOrDefaultAsync(cancellationToken);
-            if (message is null) { await transaction.RollbackAsync(cancellationToken); return processed; }
+            if (message is null) { await transaction.RollbackAsync(cancellationToken); if (!failed) telemetry.Complete(); return processed; }
             try
             {
                 await dispatcher.DispatchAsync(new(message.Id, message.Type, message.SchemaVersion, message.Payload, message.OccurredAt), cancellationToken);
@@ -49,12 +51,14 @@ public sealed class OutboxProcessor(IServiceScopeFactory scopeFactory, IOptions<
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                failed = true;
                 var terminal = ex is UnsupportedOutboxEventException;
                 message.MarkFailed(now, terminal ? "UNSUPPORTED_EVENT" : "DELIVERY_FAILED", _options.MaxAttempts, RetryDelay(message.AttemptCount + 1), terminal);
                 logger.LogWarning("Outbox event {EventId} ({EventType}) failed with {ErrorCode}.", message.Id, message.Type, terminal ? "UNSUPPORTED_EVENT" : "DELIVERY_FAILED");
             }
             await db.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
         }
+        if (!failed) telemetry.Complete();
         return processed;
     }
 
