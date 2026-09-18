@@ -23,24 +23,25 @@ namespace SecureFlow.IntegrationTests;
 public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(
-        "postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73")
+        "secureflow-postgres:17-patched-20260919")
         .WithDatabase("secureflow_tests")
         .WithUsername("secureflow_tests")
         .WithPassword("secureflow_tests")
         .Build();
 
     private readonly IContainer _objectStorage = new ContainerBuilder(
-            "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e")
-        .WithEnvironment("MINIO_ROOT_USER", "secureflow_tests")
-        .WithEnvironment("MINIO_ROOT_PASSWORD", "secureflow_tests_secret")
-        .WithCommand("server", "/data", "--console-address", ":9001")
+            "rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff")
+        .WithEnvironment("RUSTFS_ACCESS_KEY", "secureflow_tests")
+        .WithEnvironment("RUSTFS_SECRET_KEY", "secureflow_tests_secret")
+        .WithEnvironment("RUSTFS_CONSOLE_ENABLE", "false")
+        .WithCommand("/data")
         .WithPortBinding(9000, true)
         .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request =>
-            request.ForPort(9000).ForPath("/minio/health/ready")))
+            request.ForPort(9000).ForPath("/health")))
         .Build();
 
     private readonly IContainer _redis = new ContainerBuilder(
-            "redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2")
+            "redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7")
         .WithPortBinding(6379, true)
         .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "ping"))
         .Build();
