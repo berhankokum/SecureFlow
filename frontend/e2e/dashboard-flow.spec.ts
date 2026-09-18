@@ -32,9 +32,18 @@ test("dashboard cards, chart, task paging and safe activity links work on deskto
   await expect(page.getByRole("link", { name: /İkinci sayfadaki iş/ })).toBeVisible();
   await page.reload();
   await expect(page.getByText("Sayfa 2", { exact: true })).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("heading", { name: "İşlerim", exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  for (const width of [390, 320, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(page.getByRole("heading", { name: "İşlerim", exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth > window.innerWidth,
+      elements: [...document.querySelectorAll("body *")].filter(element => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && (rect.right > window.innerWidth + 1 || rect.left < -1);
+      }).map(element => `${element.tagName}.${element.className}`),
+    })), { message: `No horizontal overflow at ${width}px` }).toEqual({ overflow: false, elements: [] });
+    await expect(page.getByRole("button", { name: "Çıkış yap", exact: true })).toBeVisible();
+  }
   revoked = true;
   await page.getByRole("button", { name: "Yenile", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Dashboard yüklenemedi");

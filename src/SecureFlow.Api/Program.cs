@@ -24,9 +24,11 @@ using SecureFlow.Modules.Audit;
 using SecureFlow.Contracts.Audit;
 using SecureFlow.Contracts.Outbox;
 using Serilog;
+using SecureFlow.Api.Observability;
+using SecureFlow.Api.Security;
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
+    .WriteTo.Console(new SafeLogFormatter())
     .CreateBootstrapLogger();
 
 try
@@ -47,7 +49,12 @@ try
 
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services));
+        .ReadFrom.Services(services)
+        .WriteTo.Console(new SafeLogFormatter()));
+
+    builder.Services.AddFlowTelemetry(builder.Configuration);
+    builder.Services.AddFlowSecurity(builder.Configuration);
+    builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
     builder.Services.AddControllers();
     builder.Services.AddHttpContextAccessor();
@@ -55,7 +62,9 @@ try
     builder.Services.AddScoped<SecureFlow.Modules.Organizations.Application.Dashboard.IDashboardReader, OrganizationDashboardReader>();
     builder.Services.AddSecureFlowCaching(builder.Configuration);
     builder.Services.AddOpenApi();
-    builder.Services.AddProblemDetails();
+    builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
+        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.Items["FlowTraceId"]
+            ?? System.Diagnostics.Activity.Current?.TraceId.ToString());
     builder.Services.AddSignalR(options =>
     {
         options.EnableDetailedErrors = false;
@@ -130,7 +139,17 @@ try
         });
     });
 
-    builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
+    builder.Services.AddAntiforgery(options =>
+    {
+        options.HeaderName = "X-CSRF-TOKEN";
+        // The existing local Vite proxy talks HTTP to the Development API.
+        // Antiforgery rejects token creation on HTTP when SecurePolicy is Always.
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.HttpOnly = true;
+    });
 
     builder.Services
         .AddHealthChecks()
@@ -142,23 +161,23 @@ try
     // değerlendirmesinden önce uygulanır. Güvenilen proxy listesi production
     // deployment konfigürasyonunda açıkça sınırlandırılır.
     app.UseForwardedHeaders();
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
 
-    // Invitation raw token route segment'indedir ve hiçbir log event'ine yazılamaz.
-    // Token taşımayan bütün diğer request'lerde tek-event request logging korunur.
-    app.UseWhen(
-        context => !context.Request.Path.StartsWithSegments("/api/v1/invitations"),
-        branch => branch.UseSerilogRequestLogging());
+    app.UseRouting();
+    app.UseMiddleware<RequestTelemetryMiddleware>();
+    app.UseMiddleware<SecurityHeadersMiddleware>();
+    app.UseExceptionHandler();
 
     if (app.Environment.IsDevelopment())
     {
         app.MapOpenApi();
     }
-    else
-    {
-        app.UseExceptionHandler();
-    }
 
     app.UseHttpsRedirection();
+    app.UseCors();
 
     app.UseAuthentication();
     app.UseRateLimiter();
@@ -203,7 +222,7 @@ try
 }
 catch (Exception ex) when (ex is not HostAbortedException)
 {
-    Log.Fatal(ex, "SecureFlow.Api terminated unexpectedly during startup.");
+    Log.ForContext("SourceContext", "SecureFlow.Startup").Fatal(ex, "SecureFlow.Api terminated unexpectedly during startup.");
     Environment.ExitCode = 1;
 }
 finally

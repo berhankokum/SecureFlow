@@ -147,4 +147,42 @@ public class ModuleSkeletonTests
     }
 
     public static TheoryData<string> ModuleNames() => [.. ExpectedModules];
+
+    [Fact]
+    public void Domain_surface_generic_arguments_cannot_hide_infrastructure_dependencies()
+    {
+        var violations = ExpectedModules.Select(System.Reflection.Assembly.Load).SelectMany(a => a.GetTypes())
+            .Where(t => t.Namespace?.Contains(".Domain", StringComparison.Ordinal) == true)
+            .SelectMany(t => PublicSurfaceTypes(t).SelectMany(ExpandType).Select(d => (Owner: t, Dependency: d)))
+            .Where(pair => pair.Dependency.Namespace is { } ns &&
+                (ns.Contains(".Infrastructure", StringComparison.Ordinal)
+                || ns.Contains(".Presentation", StringComparison.Ordinal)
+                || ns.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal)
+                || ns.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal)))
+            // The specification deliberately uses ASP.NET IdentityUser<Guid>.
+            // Allow only that exact base type on the Identity module's user entity.
+            .Where(pair => !(pair.Owner.FullName == "SecureFlow.Modules.Identity.Domain.ApplicationUser"
+                && pair.Dependency.Namespace == "Microsoft.AspNetCore.Identity"
+                && pair.Dependency.Name == "IdentityUser`1"))
+            .Select(pair => $"{pair.Owner.FullName} -> {pair.Dependency.FullName}").ToArray();
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Dependency_inspector_expands_nested_generic_and_array_arguments()
+    {
+        var expanded = ExpandType(typeof(Task<Dictionary<string, List<int[]>>>)).ToArray();
+        Assert.Contains(typeof(int), expanded);
+        Assert.Contains(typeof(string), expanded);
+        Assert.Contains(typeof(List<int[]>), expanded);
+    }
+
+    private static IEnumerable<Type> ExpandType(Type type)
+    {
+        yield return type;
+        if (type.HasElementType)
+            foreach (var nested in ExpandType(type.GetElementType()!)) yield return nested;
+        foreach (var argument in type.GetGenericArguments())
+            foreach (var nested in ExpandType(argument)) yield return nested;
+    }
 }

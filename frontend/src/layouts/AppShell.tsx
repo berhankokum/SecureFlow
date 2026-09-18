@@ -23,17 +23,17 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+      <header className="flex flex-col items-start gap-3 border-b border-slate-200 bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-lg font-semibold tracking-tight">SecureFlow</span>
         {user ? (
-          <div className="flex items-center gap-4 text-sm text-slate-600">
-            <span>{user.email}</span>
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-4 text-sm text-slate-600">
+            <span className="min-w-0 break-all">{user.email}</span>
             <NotificationBell />
             <button
               type="button"
               onClick={handleLogout}
               disabled={logoutMutation.isPending}
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50 disabled:opacity-50"
+              className="shrink-0 rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-50 disabled:opacity-50"
             >
               Çıkış yap
             </button>
@@ -89,7 +89,7 @@ export function AppShell() {
             {canViewAudit ? <NavLink to={`/app/${organization.slug}/audit`} className={({ isActive }) => `block rounded-md px-3 py-2 ${isActive ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`}>Audit kayıtları</NavLink> : null}
           </nav>
         </aside>
-        <main className="flex-1 p-6">
+        <main className="min-w-0 flex-1 p-6">
           <Outlet />
         </main>
       </div>

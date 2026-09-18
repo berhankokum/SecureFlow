@@ -10,6 +10,7 @@ public sealed class ExpiredInvitationCleanupProcessor(
 {
     public async Task<int> ProcessAsync(int batchSize, CancellationToken cancellationToken = default)
     {
+        using var telemetry = SecureFlow.Contracts.Observability.FlowTelemetry.StartJob("invitation_cleanup");
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         var now = clock.UtcNow;
         var invitations = await dbContext.OrganizationInvitations
@@ -32,6 +33,7 @@ public sealed class ExpiredInvitationCleanupProcessor(
         }
 
         await transaction.CommitAsync(cancellationToken);
+        telemetry.Complete();
         return updatedCount;
     }
 }

@@ -6,46 +6,49 @@ on:
   push:
     branches: [master]
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
-    # Aşağıdaki Postgres kimlik bilgileri, yalnızca bu job'ın ömrü boyunca var olan
-    # tek kullanımlık bir CI service container'ı içindir; gerçek bir secret değildir
-    # ve GitHub Actions secrets/vars mekanizması gerektirmez.
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: secureflow
-          POSTGRES_USER: secureflow
-          POSTGRES_PASSWORD: secureflow
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U secureflow -d secureflow"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    # Credentials below belong only to this job's disposable migration database.
     env:
       ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=secureflow;Username=secureflow;Password=secureflow"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore
+      - name: Build patched PostgreSQL and start isolated migration database
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t secureflow-postgres:17-patched-20260919 infra/postgres
+          docker run -d --name ci-migrations -p 127.0.0.1:5432:5432 \
+            -e POSTGRES_DB=secureflow -e POSTGRES_USER=secureflow -e POSTGRES_PASSWORD=secureflow \
+            secureflow-postgres:17-patched-20260919
+          for attempt in $(seq 1 60); do
+            if docker exec ci-migrations pg_isready -h 127.0.0.1 -U secureflow -d secureflow; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Restore and audit all NuGet dependencies (fail closed on High/Critical)
         run: dotnet restore SecureFlow.slnx
 
-      - name: Build
+      - name: Build with security analyzers
         run: dotnet build SecureFlow.slnx --no-restore --configuration Release
 
       - name: Install dotnet-ef
         run: |
-          dotnet tool install --global dotnet-ef
+          dotnet tool install --global dotnet-ef --version 10.0.11
           echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
       - name: Apply database migrations
@@ -55,7 +58,11 @@ jobs:
           --startup-project src/SecureFlow.Api/SecureFlow.Api.csproj
 
       - name: Test
-        run: dotnet test SecureFlow.slnx --no-build --configuration Release
+        run: dotnet test SecureFlow.slnx --no-build --configuration Release --filter "Category!=Browser"
+
+      - name: Remove disposable migration database
+        if: always()
+        run: docker rm -fv ci-migrations
 
   frontend:
     name: Frontend
@@ -64,10 +71,12 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: "npm"
@@ -75,6 +84,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit all npm dependencies
+        run: npm audit --audit-level=high
 
       - name: Type-check
         run: npx tsc -b
@@ -93,3 +105,85 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify production CSP in browser
+        run: npm run test:security-build
+
+  real-browser:
+    name: Real browser integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend
+        working-directory: frontend
+        run: npm ci
+      - name: Build production frontend
+        working-directory: frontend
+        run: npm run build
+      - name: Install browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Real HTTPS API lifecycle against isolated Testcontainers
+        # Testcontainers uses the same local image as backend and Compose.
+        run: |
+          docker build -t secureflow-postgres:17-patched-20260919 infra/postgres
+          dotnet test tests/SecureFlow.IntegrationTests/SecureFlow.IntegrationTests.csproj --configuration Release --filter "Category=Browser"
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install checksum-verified Gitleaks
+        run: bash .github/scripts/install-security-tool.sh gitleaks
+      - name: Scan complete history (redacted)
+        run: '"$RUNNER_TEMP/security-tools/gitleaks" git --redact=100 --no-banner --log-opts="--all" .'
+
+  containers:
+    name: Container scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install checksum-verified Trivy
+        run: bash .github/scripts/install-security-tool.sh trivy
+      - name: Build patched PostgreSQL to scan the actual runtime image
+        run: docker build -t secureflow-postgres:17-patched-20260919 infra/postgres
+      - name: Audit RustFS source dependencies (binary scan does not detect Rust crates)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rustfs-source"
+          curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+            https://raw.githubusercontent.com/rustfs/rustfs/1.0.0/Cargo.lock \
+            --output "$RUNNER_TEMP/rustfs-source/Cargo.lock"
+          printf '%s  %s\n' b9c25d217bcb846c0ee2dc1bb878de87cc40b9e22535f5713e47c759acf9432d "$RUNNER_TEMP/rustfs-source/Cargo.lock" | sha256sum --check --strict
+          "$RUNNER_TEMP/security-tools/trivy" fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress "$RUNNER_TEMP/rustfs-source"
+      - name: Scan every current Compose image (High/Critical, including unfixed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose config --no-interpolate --images > "$RUNNER_TEMP/secureflow-images.txt"
+          test -s "$RUNNER_TEMP/secureflow-images.txt"
+          failed=0
+          while IFS= read -r image; do
+            "$RUNNER_TEMP/security-tools/trivy" image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress --timeout 5m "$image" || failed=1
+          done < "$RUNNER_TEMP/secureflow-images.txt"
+          exit "$failed"

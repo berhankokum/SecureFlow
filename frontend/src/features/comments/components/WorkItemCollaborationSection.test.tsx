@@ -28,6 +28,15 @@ const workItem: WorkItem = {
 };
 
 describe("WorkItemCollaborationSection", () => {
+  it("renders hostile stored comment content as text, never executable HTML", () => {
+    const payload = '<img src=x onerror="alert(document.cookie)"><script>alert(1)</script>';
+    commentData = [{ id: "xss", organizationId: "org", workItemId: "workitem", authorId: "author",
+      authorEmail: "author@example.com", content: payload, createdAt: time, updatedAt: time,
+      deletedAt: null, canUpdate: false, canDelete: false, mentions: [] }];
+    const { container } = renderWithProviders(<WorkItemCollaborationSection workItem={workItem} projectArchived={false} />);
+    expect(screen.getByText(payload)).toBeInTheDocument();
+    expect(container.querySelector("script, img, iframe")).toBeNull();
+  });
   beforeEach(() => {
     commentData = [];
     activityData = [];

@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    image: secureflow-postgres:17-patched-20260919
+    build:
+      context: ./infra/postgres
     container_name: secureflow-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -17,7 +19,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+    image: redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
     container_name: secureflow-redis
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save "" --appendonly no
     ports:
@@ -31,25 +33,29 @@ services:
       retries: 10
 
   object-storage:
-    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    image: rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
     container_name: secureflow-object-storage
-    command: server /data --console-address ":9001"
+    command: ["/data"]
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # Compatibility aliases: existing .env and ObjectStorage credentials remain valid.
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      RUSTFS_CONSOLE_ENABLE: "true"
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     volumes:
-      - secureflow-object-storage-data:/data
+      # Never mount MinIO's on-disk data into a different storage engine.
+      # Read docs/security/rustfs-migration.md BEFORE recreating this service.
+      - secureflow-rustfs-data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:9000/health"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   mailpit:
-    image: axllent/mailpit@sha256:d5ecbb067db3705fa953d79e1b7f81ef84038df67aba6c52825d8c02a1ea748a
+    image: axllent/mailpit@sha256:98b916bd3c8d61f7633a52d3ea2f58d00620cb01ca57ab59edde68c347a95365
     container_name: secureflow-mailpit
     ports:
       - "127.0.0.1:1025:1025" # SMTP
@@ -59,3 +65,4 @@ volumes:
   secureflow-postgres-data:
   secureflow-redis-data:
   secureflow-object-storage-data:
+  secureflow-rustfs-data:
