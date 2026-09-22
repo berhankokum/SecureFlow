@@ -91,3 +91,5 @@ yarn-error.log*
 appsettings.*.local.json
 .env.local
 .env.*.local
+
+docs/
