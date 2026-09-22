@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { Link } from "react-router-dom";
 import { usePermission } from "@/features/authorization/hooks/usePermission";
 import { permissions } from "@/features/authorization/permissions";
@@ -26,8 +28,8 @@ export function ProjectsPage() {
         setCreating(false);
       }} />
     </div> : null}
-    {projectsQuery.isLoading ? <div className="mt-6 grid gap-4 md:grid-cols-2"><div className="h-36 animate-pulse rounded-lg bg-slate-200" /><div className="h-36 animate-pulse rounded-lg bg-slate-200" /></div> : null}
-    {projectsQuery.isError ? <p className="mt-6 rounded-md bg-red-50 p-3 text-sm text-red-700">Projects yüklenemedi.</p> : null}
+    {projectsQuery.isLoading ? <LoadingState label="Projects yükleniyor..." /> : null}
+    {projectsQuery.isError ? <ErrorState message="Projects yüklenemedi." onRetry={() => void projectsQuery.refetch()} retrying={projectsQuery.isFetching} /> : null}
     {projectsQuery.data?.length === 0 ? <div className="mt-6 rounded-lg border border-dashed border-slate-300 p-8 text-center"><p className="text-sm text-slate-600">Henüz erişebildiğiniz bir Project yok.</p>{canCreate ? <button type="button" onClick={() => setCreating(true)} className="mt-3 text-sm font-medium text-slate-900 underline">İlk Project'i oluştur</button> : null}</div> : null}
     <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {projectsQuery.data?.map(project => <Link key={project.id} to={project.key} className="rounded-lg border border-slate-200 bg-white p-5 hover:border-slate-400">

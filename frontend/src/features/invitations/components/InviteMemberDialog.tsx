@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { Dialog } from "@/components/ui/Dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ApiError } from "@/lib/api/apiClient";
@@ -28,16 +29,6 @@ export function InviteMemberDialog({
     defaultValues: { email: "", role: "MEMBER" },
   });
 
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onDismiss();
-      }
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onDismiss]);
-
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
@@ -58,21 +49,7 @@ export function InviteMemberDialog({
   });
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) {
-          onDismiss();
-        }
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="invite-member-title"
-        className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
-      >
+    <Dialog labelledBy="invite-member-title" onDismiss={onDismiss}>
         <div className="flex items-center justify-between gap-4">
           <h2 id="invite-member-title" className="text-lg font-semibold text-slate-900">
             Üye davet et
@@ -89,7 +66,7 @@ export function InviteMemberDialog({
 
         <form onSubmit={onSubmit} className="mt-5 space-y-4" noValidate>
           {formError ? (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
           ) : null}
 
           <div>
@@ -100,11 +77,13 @@ export function InviteMemberDialog({
               id="invitation-email"
               type="email"
               autoComplete="email"
-              autoFocus
+              data-dialog-autofocus
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "invitation-email-error" : undefined}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               {...register("email")}
             />
-            {errors.email ? <p className="mt-1 text-sm text-red-600">{errors.email.message}</p> : null}
+            {errors.email ? <p id="invitation-email-error" role="alert" className="mt-1 text-sm text-red-600">{errors.email.message}</p> : null}
           </div>
 
           <div>
@@ -139,7 +118,6 @@ export function InviteMemberDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

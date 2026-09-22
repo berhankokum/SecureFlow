@@ -31,6 +31,9 @@ describe("LoginForm", () => {
 
     expect(await screen.findByText("E-posta zorunludur.")).toBeInTheDocument();
     expect(await screen.findByText("Şifre zorunludur.")).toBeInTheDocument();
+    expect(screen.getByLabelText("E-posta")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("E-posta")).toHaveAccessibleDescription("E-posta zorunludur.");
+    expect(screen.getByLabelText("Şifre")).toHaveAccessibleDescription("Şifre zorunludur.");
     expect(loginMock).not.toHaveBeenCalled();
   });
 

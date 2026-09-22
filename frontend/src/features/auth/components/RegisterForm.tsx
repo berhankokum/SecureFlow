@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "react-router-dom";
@@ -7,6 +7,7 @@ import { registerSchema, type RegisterFormValues } from "../schemas/authSchemas"
 import { ApiError } from "@/lib/api/apiClient";
 
 export function RegisterForm() {
+  const errorId = useId();
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const registerMutation = useRegister();
@@ -45,7 +46,7 @@ export function RegisterForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {formError ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
       ) : null}
 
       <div>
@@ -57,9 +58,9 @@ export function RegisterForm() {
           type="email"
           autoComplete="email"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          {...field("email")}
+          aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? `${errorId}-email` : undefined} {...field("email")}
         />
-        {errors.email ? <p className="mt-1 text-sm text-red-600">{errors.email.message}</p> : null}
+        {errors.email ? <p id={`${errorId}-email`} role="alert" className="mt-1 text-sm text-red-600">{errors.email.message}</p> : null}
       </div>
 
       <div>
@@ -71,9 +72,9 @@ export function RegisterForm() {
           type="password"
           autoComplete="new-password"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          {...field("password")}
+          aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? `${errorId}-password` : undefined} {...field("password")}
         />
-        {errors.password ? <p className="mt-1 text-sm text-red-600">{errors.password.message}</p> : null}
+        {errors.password ? <p id={`${errorId}-password`} role="alert" className="mt-1 text-sm text-red-600">{errors.password.message}</p> : null}
       </div>
 
       <button

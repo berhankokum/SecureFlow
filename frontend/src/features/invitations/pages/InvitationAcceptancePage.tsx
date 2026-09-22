@@ -21,7 +21,7 @@ export function InvitationAcceptancePage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (!token) {
-    return <InvitationLayout><p className="text-sm text-red-700">Invitation bağlantısı geçersiz.</p></InvitationLayout>;
+    return <InvitationLayout><p role="alert" className="text-sm text-red-700">Invitation bağlantısı geçersiz.</p></InvitationLayout>;
   }
 
   if (invitationQuery.isLoading) {
@@ -29,7 +29,7 @@ export function InvitationAcceptancePage() {
   }
 
   if (invitationQuery.isError || !invitationQuery.data) {
-    return <InvitationLayout><p className="text-sm text-red-700">Invitation bulunamadı veya bağlantı geçersiz.</p></InvitationLayout>;
+    return <InvitationLayout><p role="alert" className="text-sm text-red-700">Invitation bulunamadı veya bağlantı geçersiz.</p></InvitationLayout>;
   }
 
   const invitation = invitationQuery.data;
@@ -60,7 +60,7 @@ export function InvitationAcceptancePage() {
       ) : null}
 
       {actionError ? (
-        <p className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>
+        <p role="alert" className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>
       ) : null}
 
       {!inactiveMessage && !isUserLoading && !currentUser ? (
@@ -82,7 +82,7 @@ export function InvitationAcceptancePage() {
       ) : null}
 
       {!inactiveMessage && currentUser && !emailMatches ? (
-        <p className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           Bu invitation {invitation.email} hesabına ait. Şu anda {currentUser.email} hesabıyla giriş yaptınız.
         </p>
       ) : null}

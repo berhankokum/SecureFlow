@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,6 +12,7 @@ interface ResetPasswordFormProps {
 }
 
 export function ResetPasswordForm({ email, code }: ResetPasswordFormProps) {
+  const errorId = useId();
   const [formError, setFormError] = useState<string | null>(null);
   const resetPasswordMutation = useResetPassword();
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export function ResetPasswordForm({ email, code }: ResetPasswordFormProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {formError ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
       ) : null}
 
       <div>
@@ -49,10 +50,10 @@ export function ResetPasswordForm({ email, code }: ResetPasswordFormProps) {
           type="password"
           autoComplete="new-password"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          {...field("newPassword")}
+          aria-invalid={Boolean(errors.newPassword)} aria-describedby={errors.newPassword ? `${errorId}-newPassword` : undefined} {...field("newPassword")}
         />
         {errors.newPassword ? (
-          <p className="mt-1 text-sm text-red-600">{errors.newPassword.message}</p>
+          <p id={`${errorId}-newPassword`} role="alert" className="mt-1 text-sm text-red-600">{errors.newPassword.message}</p>
         ) : null}
       </div>
 

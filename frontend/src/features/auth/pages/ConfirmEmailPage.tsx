@@ -51,7 +51,7 @@ export function ConfirmEmailPage() {
           </Link>
         </div>
       ) : null}
-      {status === "error" ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+      {status === "error" ? <p role="alert" className="text-sm text-red-600">{errorMessage}</p> : null}
     </AuthPageLayout>
   );
 }

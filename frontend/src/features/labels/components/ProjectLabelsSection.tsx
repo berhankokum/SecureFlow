@@ -1,3 +1,4 @@
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useState } from "react";
 import { permissions } from "@/features/authorization/permissions";
 import type { ProjectDetails } from "@/features/projects/api/types";
@@ -25,7 +26,7 @@ export function ProjectLabelsSection({ project }: { project: ProjectDetails }) {
       else await update.mutateAsync({ id: editing.id, name });
       setEditing(null);
     }} /> : null}
-    {query.isLoading ? <p className="mt-4 text-sm text-slate-500">Labels yükleniyor...</p> : null}
+    {query.isLoading ? <LoadingState label="Labels yükleniyor..." /> : null}
     {query.isError ? <p role="alert" className="mt-4 text-sm text-red-700">Labels yüklenemedi.</p> : null}
     {error ? <p role="alert" className="mt-4 text-sm text-red-700">{error}</p> : null}
     {query.data?.length === 0 ? <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-5 text-sm text-slate-500">Henüz Label yok.</p> : null}

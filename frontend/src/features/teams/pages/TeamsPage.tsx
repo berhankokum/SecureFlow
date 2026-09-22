@@ -1,3 +1,5 @@
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { usePermission } from "@/features/authorization/hooks/usePermission";
@@ -39,8 +41,8 @@ export function TeamsPage() {
         </div>
       ) : null}
 
-      {teamsQuery.isLoading ? <p className="mt-6 text-sm text-slate-600">Teams yükleniyor...</p> : null}
-      {teamsQuery.isError ? <p className="mt-6 rounded-md bg-red-50 p-3 text-sm text-red-700">Teams yüklenemedi.</p> : null}
+      {teamsQuery.isLoading ? <LoadingState label="Teams yükleniyor..." /> : null}
+      {teamsQuery.isError ? <ErrorState message="Teams yüklenemedi." onRetry={() => void teamsQuery.refetch()} retrying={teamsQuery.isFetching} /> : null}
       {teamsQuery.data?.length === 0 ? <p className="mt-6 rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Henüz Team yok.</p> : null}
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {teamsQuery.data?.map((team) => (

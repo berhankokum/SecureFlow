@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ApiError } from "@/lib/api/apiClient";
@@ -12,6 +12,7 @@ interface WorkItemFormProps {
 }
 
 export function WorkItemForm({ mode, initialValues, onSubmit, onCancel }: WorkItemFormProps) {
+  const errorId = useId();
   const [formError, setFormError] = useState<string | null>(null);
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<WorkItemFormValues>({
     resolver: zodResolver(mode === "create" ? createWorkItemSchema : updateWorkItemSchema),
@@ -35,14 +36,14 @@ export function WorkItemForm({ mode, initialValues, onSubmit, onCancel }: WorkIt
 
   return <form onSubmit={submit} className="space-y-4" noValidate>
     <h3 className="text-lg font-semibold text-slate-900">{mode === "create" ? "Yeni WorkItem" : "WorkItem düzenle"}</h3>
-    {formError ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p> : null}
+    {formError ? <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p> : null}
     <div className="grid gap-4 sm:grid-cols-2">
-      <div><label htmlFor={`${mode}-workitem-type`} className="block text-sm font-medium text-slate-700">Tür</label><select id={`${mode}-workitem-type`} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" {...register("type")}><option value="TASK">TASK</option><option value="BUG">BUG</option><option value="STORY">STORY</option></select>{errors.type ? <p className="mt-1 text-sm text-red-600">{errors.type.message}</p> : null}</div>
-      <div><label htmlFor={`${mode}-workitem-priority`} className="block text-sm font-medium text-slate-700">Öncelik</label><select id={`${mode}-workitem-priority`} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" {...register("priority")}><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select>{errors.priority ? <p className="mt-1 text-sm text-red-600">{errors.priority.message}</p> : null}</div>
+      <div><label htmlFor={`${mode}-workitem-type`} className="block text-sm font-medium text-slate-700">Tür</label><select id={`${mode}-workitem-type`} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" aria-invalid={Boolean(errors.type)} aria-describedby={errors.type ? `${errorId}-type` : undefined} {...register("type")}><option value="TASK">TASK</option><option value="BUG">BUG</option><option value="STORY">STORY</option></select>{errors.type ? <p id={`${errorId}-type`} role="alert" className="mt-1 text-sm text-red-600">{errors.type.message}</p> : null}</div>
+      <div><label htmlFor={`${mode}-workitem-priority`} className="block text-sm font-medium text-slate-700">Öncelik</label><select id={`${mode}-workitem-priority`} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" aria-invalid={Boolean(errors.priority)} aria-describedby={errors.priority ? `${errorId}-priority` : undefined} {...register("priority")}><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select>{errors.priority ? <p id={`${errorId}-priority`} role="alert" className="mt-1 text-sm text-red-600">{errors.priority.message}</p> : null}</div>
     </div>
-    <div><label htmlFor={`${mode}-workitem-title`} className="block text-sm font-medium text-slate-700">Başlık</label><input id={`${mode}-workitem-title`} autoFocus maxLength={200} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" {...register("title")} />{errors.title ? <p className="mt-1 text-sm text-red-600">{errors.title.message}</p> : null}</div>
-    <div><label htmlFor={`${mode}-workitem-description`} className="block text-sm font-medium text-slate-700">Açıklama <span className="font-normal text-slate-500">(isteğe bağlı)</span></label><textarea id={`${mode}-workitem-description`} rows={5} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" {...register("description")} />{errors.description ? <p className="mt-1 text-sm text-red-600">{errors.description.message}</p> : null}</div>
-    <div><label htmlFor={`${mode}-workitem-due-date`} className="block text-sm font-medium text-slate-700">Due date <span className="font-normal text-slate-500">(isteğe bağlı)</span></label><input id={`${mode}-workitem-due-date`} type="date" className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm" {...register("dueDate")} />{errors.dueDate ? <p className="mt-1 text-sm text-red-600">{errors.dueDate.message}</p> : null}</div>
+    <div><label htmlFor={`${mode}-workitem-title`} className="block text-sm font-medium text-slate-700">Başlık</label><input id={`${mode}-workitem-title`} autoFocus maxLength={200} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" aria-invalid={Boolean(errors.title)} aria-describedby={errors.title ? `${errorId}-title` : undefined} {...register("title")} />{errors.title ? <p id={`${errorId}-title`} role="alert" className="mt-1 text-sm text-red-600">{errors.title.message}</p> : null}</div>
+    <div><label htmlFor={`${mode}-workitem-description`} className="block text-sm font-medium text-slate-700">Açıklama <span className="font-normal text-slate-500">(isteğe bağlı)</span></label><textarea id={`${mode}-workitem-description`} rows={5} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? `${errorId}-description` : undefined} {...register("description")} />{errors.description ? <p id={`${errorId}-description`} role="alert" className="mt-1 text-sm text-red-600">{errors.description.message}</p> : null}</div>
+    <div><label htmlFor={`${mode}-workitem-due-date`} className="block text-sm font-medium text-slate-700">Due date <span className="font-normal text-slate-500">(isteğe bağlı)</span></label><input id={`${mode}-workitem-due-date`} type="date" className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm" aria-invalid={Boolean(errors.dueDate)} aria-describedby={errors.dueDate ? `${errorId}-dueDate` : undefined} {...register("dueDate")} />{errors.dueDate ? <p id={`${errorId}-dueDate`} role="alert" className="mt-1 text-sm text-red-600">{errors.dueDate.message}</p> : null}</div>
     <div className="flex justify-end gap-3"><button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-4 py-2 text-sm">Vazgeç</button><button type="submit" disabled={isSubmitting} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{isSubmitting ? "Kaydediliyor..." : mode === "create" ? "WorkItem oluştur" : "Kaydet"}</button></div>
   </form>;
 }
