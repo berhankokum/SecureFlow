@@ -27,6 +27,19 @@ using Serilog;
 using SecureFlow.Api.Observability;
 using SecureFlow.Api.Security;
 
+if (args is ["--healthcheck"])
+{
+    try
+    {
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        client.DefaultRequestHeaders.Host = Environment.GetEnvironmentVariable("AllowedHosts") ?? "localhost";
+        using var response = await client.GetAsync("http://127.0.0.1:8080/health/live");
+        Environment.ExitCode = response.IsSuccessStatusCode ? 0 : 1;
+    }
+    catch { Environment.ExitCode = 1; }
+    return;
+}
+
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new SafeLogFormatter())
     .CreateBootstrapLogger();
@@ -46,6 +59,8 @@ try
         DevelopmentEnvironmentFile.AddMissingValues(builder.Configuration, builder.Environment.ContentRootPath);
     }
 #endif
+
+    builder.AddProductionHosting();
 
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
@@ -176,7 +191,8 @@ try
         app.MapOpenApi();
     }
 
-    app.UseHttpsRedirection();
+    // Non-sensitive process health is reachable inside the private container network.
+    app.UseWhen(context => context.Request.Path != "/health/live", branch => branch.UseHttpsRedirection());
     app.UseCors();
 
     app.UseAuthentication();
