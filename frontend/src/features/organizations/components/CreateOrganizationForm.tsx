@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,7 @@ import {
 } from "../schemas/organizationSchemas";
 
 export function CreateOrganizationForm() {
+  const errorId = useId();
   const navigate = useNavigate();
   const createOrganizationMutation = useCreateOrganization();
   const [formError, setFormError] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export function CreateOrganizationForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
       {formError ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
       ) : null}
 
       <div>
@@ -65,9 +66,9 @@ export function CreateOrganizationForm() {
           id="organization-name"
           autoComplete="organization"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          {...register("name")}
+          aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? `${errorId}-name` : undefined} {...register("name")}
         />
-        {errors.name ? <p className="mt-1 text-sm text-red-600">{errors.name.message}</p> : null}
+        {errors.name ? <p id={`${errorId}-name`} role="alert" className="mt-1 text-sm text-red-600">{errors.name.message}</p> : null}
       </div>
 
       <div>
@@ -79,10 +80,10 @@ export function CreateOrganizationForm() {
           type="url"
           placeholder="https://example.com/logo.png"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          {...register("logoUrl")}
+          aria-invalid={Boolean(errors.logoUrl)} aria-describedby={errors.logoUrl ? `${errorId}-logoUrl` : undefined} {...register("logoUrl")}
         />
         {errors.logoUrl ? (
-          <p className="mt-1 text-sm text-red-600">{errors.logoUrl.message}</p>
+          <p id={`${errorId}-logoUrl`} role="alert" className="mt-1 text-sm text-red-600">{errors.logoUrl.message}</p>
         ) : null}
       </div>
 

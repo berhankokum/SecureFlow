@@ -1,17 +1,18 @@
 import { Link, Navigate } from "react-router-dom";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useOrganizations } from "../hooks/useOrganizations";
 
 export function OrganizationEntryPage() {
   const { data: organizations, isLoading, isError, refetch } = useOrganizations();
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-slate-600">Organization’lar yükleniyor...</div>;
+    return <LoadingState label="Organization’lar yükleniyor..." />;
   }
 
   if (isError) {
     return (
       <div className="p-6 text-sm text-red-700">
-        <p>Organization listesi yüklenemedi.</p>
+        <p role="alert">Organization listesi yüklenemedi.</p>
         <button type="button" className="mt-3 underline" onClick={() => void refetch()}>
           Tekrar dene
         </button>

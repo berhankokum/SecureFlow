@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 
 /**
@@ -10,7 +11,7 @@ export function ProtectedRoute() {
   const location = useLocation();
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-slate-500">Yükleniyor...</div>;
+    return <LoadingState label="Yükleniyor..." />;
   }
 
   if (isError || !user) {

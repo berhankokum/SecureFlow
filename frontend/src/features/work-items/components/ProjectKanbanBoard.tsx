@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { Link } from "react-router-dom";
 import { permissions } from "@/features/authorization/permissions";
 import type { ProjectDetails } from "@/features/projects/api/types";
@@ -25,10 +26,10 @@ export function ProjectKanbanBoard({ project }: { project: ProjectDetails }) {
   const [error, setError] = useState<string | null>(null);
 
   if (workflowQuery.isLoading || workItemsQuery.isLoading) {
-    return <div className="mt-4 h-64 animate-pulse rounded-lg bg-slate-200" />;
+    return <LoadingState label="Kanban board yükleniyor..." />;
   }
   if (workflowQuery.isError || workItemsQuery.isError || !workflowQuery.data) {
-    return <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">Kanban board yüklenemedi.</p>;
+    return <p role="alert" className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">Kanban board yüklenemedi.</p>;
   }
 
   const workflow = workflowQuery.data;
@@ -53,9 +54,9 @@ export function ProjectKanbanBoard({ project }: { project: ProjectDetails }) {
   };
 
   return <div className="mt-4">
-    <p className="text-sm text-slate-600">Kartları yalnızca izin verilen bir sonraki kolona sürükleyebilirsiniz.</p>
+    <p className="text-sm text-slate-600">Kartları yalnızca izin verilen bir sonraki kolona sürükleyebilirsiniz. Klavyeyle kartın “Taşı...” listesini kullanabilirsiniz.</p>
     {error ? <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-    <div className="mt-4 grid min-w-max grid-cols-5 gap-4 overflow-x-auto pb-3" aria-label="Kanban board">
+    <div className="mt-4 flex gap-4 overflow-x-auto pb-3" role="region" tabIndex={0} aria-label="Kanban board">
       {workflow.states.map(state => {
         const columnItems = activeItems.filter(item => item.workflowStateId === state.id);
         return <section
@@ -74,7 +75,7 @@ export function ProjectKanbanBoard({ project }: { project: ProjectDetails }) {
             setDraggedWorkItemId(null);
             if (item) void move(item, state);
           }}
-          className="min-h-72 w-64 rounded-lg border border-slate-200 bg-slate-50 p-3"
+          className="min-h-72 w-64 shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-3"
         >
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-slate-800">{state.name.replaceAll("_", " ")}</h3>

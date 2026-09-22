@@ -14,7 +14,7 @@ vi.mock("../hooks/useNotifications", () => ({
     unreadCount: 1,
     items: [{ id: "notification", organizationId: "org", type: "MENTIONED", title: "Bir yorumda bahsedildiniz", message: "SF-1", resourceType: "WORK_ITEM", resourceId: "workitem", isRead: false, createdAt: "2026-09-05T10:00:00Z", readAt: null }],
   } }),
-  useMarkNotificationRead: () => ({ mutateAsync: markRead, isPending: false }),
+  useMarkNotificationRead: () => ({ mutate: markRead, isPending: false }),
 }));
 
 describe("NotificationBell", () => {

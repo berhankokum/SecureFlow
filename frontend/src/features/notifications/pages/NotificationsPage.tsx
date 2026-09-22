@@ -1,3 +1,5 @@
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { useState } from "react";
 import { ApiError } from "@/lib/api/apiClient";
 import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotificationPreference, useNotifications, useUpdateNotificationPreference } from "../hooks/useNotifications";
@@ -22,12 +24,14 @@ export function NotificationsPage() {
     <section aria-labelledby="notification-settings-title" className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
       <h2 id="notification-settings-title" className="font-semibold text-slate-900">Tercihler</h2>
       <label className="mt-3 flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked disabled /> Uygulama içi bildirimler</label>
-      <label className="mt-3 flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked={preference.data?.emailEnabled ?? false} disabled={preference.isLoading || updatePreference.isPending} onChange={event => void run(() => updatePreference.mutateAsync(event.target.checked))} /> E-posta bildirimleri</label>
+      <label className="mt-3 flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked={preference.data?.emailEnabled ?? false} disabled={!preference.data || preference.isError || preference.isLoading || updatePreference.isPending} onChange={event => void run(() => updatePreference.mutateAsync(event.target.checked))} /> E-posta bildirimleri</label>
+      {preference.isLoading ? <LoadingState label="Tercihler yükleniyor..." /> : null}
+      {preference.isError ? <ErrorState message="Bildirim tercihleri yüklenemedi." onRetry={() => void preference.refetch()} retrying={preference.isFetching} /> : null}
       <p className="mt-2 text-xs text-slate-500">Tercih açıkken yeni uygulama içi bildirimleriniz e-posta olarak da gönderilir.</p>
     </section>
 
     {error ? <p role="alert" className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-    {notifications.isLoading ? <p className="mt-6 text-sm text-slate-500">Bildirimler yükleniyor...</p>
+    {notifications.isLoading ? <LoadingState label="Bildirimler yükleniyor..." />
       : notifications.isError ? <p role="alert" className="mt-6 text-sm text-red-700">Bildirimler yüklenemedi.</p>
         : notifications.data?.items.length ? <ul className="mt-6 space-y-3">{notifications.data.items.map(item => <li key={item.id} className={`rounded-lg border p-4 ${item.isRead ? "border-slate-200 bg-white" : "border-blue-200 bg-blue-50"}`}>
             <button type="button" disabled={item.isRead || markRead.isPending} onClick={() => void run(() => markRead.mutateAsync(item.id))} className="w-full text-left disabled:cursor-default">

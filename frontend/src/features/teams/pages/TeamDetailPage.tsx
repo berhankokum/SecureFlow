@@ -1,3 +1,4 @@
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { usePermission } from "@/features/authorization/hooks/usePermission";
@@ -24,8 +25,8 @@ export function TeamDetailPage() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
 
-  if (teamQuery.isLoading) return <p className="text-sm text-slate-600">Team yükleniyor...</p>;
-  if (teamQuery.isError || !teamQuery.data) return <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">Team yüklenemedi.</p>;
+  if (teamQuery.isLoading) return <LoadingState label="Team yükleniyor..." />;
+  if (teamQuery.isError || !teamQuery.data) return <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">Team yüklenemedi.</p>;
 
   const team = teamQuery.data;
   const isArchived = team.archivedAt !== null;
@@ -44,7 +45,7 @@ export function TeamDetailPage() {
       <Link to=".." relative="path" className="text-sm font-medium text-slate-600 hover:underline">← Teams</Link>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold text-slate-900">{team.name}</h1>
             {isArchived ? <span className="rounded-full bg-slate-200 px-2 py-1 text-xs text-slate-700">Archived</span> : null}
           </div>
@@ -59,7 +60,7 @@ export function TeamDetailPage() {
       </div>
 
       {isArchived ? <p className="mt-5 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">Archived Team salt okunurdur; üyelikler geçmiş kaydı olarak korunur.</p> : null}
-      {actionError ? <p className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p> : null}
+      {actionError ? <p role="alert" className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p> : null}
 
       {editing ? (
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
@@ -91,9 +92,9 @@ export function TeamDetailPage() {
         <div className="mt-4 rounded-lg border border-slate-200 bg-white">
           {team.members.length === 0 ? <p className="p-5 text-sm text-slate-500">Bu Team'de henüz üye yok.</p> : null}
           {team.members.map((member) => (
-            <div key={member.userId} className="flex items-center justify-between border-b border-slate-100 px-5 py-4 last:border-b-0">
+            <div key={member.userId} className="flex flex-wrap items-center justify-between border-b border-slate-100 px-5 py-4 last:border-b-0">
               <div><p className="text-sm font-medium text-slate-900">{member.email}</p><p className="mt-1 text-xs text-slate-500">Eklenme: {new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(member.addedAt))}</p></div>
-              {canManageMembers && !isArchived ? <button type="button" disabled={removeMutation.isPending} onClick={() => void runAction(() => removeMutation.mutateAsync(member.userId))} className="text-sm font-medium text-red-700 hover:underline">Çıkar</button> : null}
+              {canManageMembers && !isArchived ? <button type="button" disabled={removeMutation.isPending} onClick={() => { if (window.confirm(`${member.email} üyeliği kaldırılsın mı?`)) void runAction(() => removeMutation.mutateAsync(member.userId)); }} className="text-sm font-medium text-red-700 hover:underline">Çıkar</button> : null}
             </div>
           ))}
         </div>

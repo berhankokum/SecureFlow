@@ -40,6 +40,6 @@ export function WorkItemFilters({ project }: { project: ProjectDetails }) {
     </div>
     {labels.isError || workflow.isError ? <p role="alert">Filtre seçenekleri yüklenemedi. Sayfayı yeniden deneyin.</p> : null}
     {error ? <p role="alert" className="mt-2 text-red-700">{error}</p> : null}
-    <div className="mt-3 flex gap-3"><button type="submit" className="rounded bg-slate-900 px-3 py-2 text-sm text-white">Filtreleri uygula</button><button type="button" onClick={() => { setError(null); update(Object.fromEntries(workItemFilterNames.map(name => [name, ""]))); }} className="rounded border px-3 py-2 text-sm">Filtreleri temizle</button></div>
+    <div className="mt-3 flex flex-wrap gap-3"><button type="submit" className="rounded bg-slate-900 px-3 py-2 text-sm text-white">Filtreleri uygula</button><button type="button" onClick={() => { setError(null); update(Object.fromEntries(workItemFilterNames.map(name => [name, ""]))); }} className="rounded border px-3 py-2 text-sm">Filtreleri temizle</button></div>
   </form>;
 }

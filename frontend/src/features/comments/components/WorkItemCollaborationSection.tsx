@@ -1,3 +1,4 @@
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useId, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -131,7 +132,7 @@ export function WorkItemCollaborationSection({ workItem, projectArchived, mentio
     <section aria-labelledby="comments-title" className="rounded-lg border border-slate-200 bg-white p-5">
       <h2 id="comments-title" className="text-lg font-semibold text-slate-900">Yorumlar</h2>
       {canCreate ? <div className="mt-4"><CommentEditor mentionCandidates={mentionCandidates} submitLabel="Yorum ekle" onSubmit={async payload => { await create.mutateAsync(payload); }} /></div> : null}
-      {comments.isLoading ? <p className="mt-4 text-sm text-slate-500">Yorumlar yükleniyor...</p>
+      {comments.isLoading ? <LoadingState label="Yorumlar yükleniyor..." />
         : comments.isError ? <p role="alert" className="mt-4 text-sm text-red-700">Yorumlar yüklenemedi.</p>
           : comments.data?.length ? <ul className="mt-5 space-y-3">{comments.data.map(comment => <CommentRow key={comment.id} comment={comment} workItemId={workItem.id} mentionCandidates={mentionCandidates} />)}</ul>
             : <p className="mt-4 text-sm text-slate-500">Henüz yorum yok.</p>}
@@ -139,7 +140,7 @@ export function WorkItemCollaborationSection({ workItem, projectArchived, mentio
 
     <section aria-labelledby="activity-title" className="rounded-lg border border-slate-200 bg-white p-5">
       <h2 id="activity-title" className="text-lg font-semibold text-slate-900">Aktivite</h2>
-      {activity.isLoading ? <p className="mt-4 text-sm text-slate-500">Aktivite yükleniyor...</p>
+      {activity.isLoading ? <LoadingState label="Aktivite yükleniyor..." />
         : activity.isError ? <p role="alert" className="mt-4 text-sm text-red-700">Aktivite yüklenemedi.</p>
           : activity.data?.length ? <ol className="mt-4 space-y-4 border-l border-slate-200 pl-4">{activity.data.map(event => <li key={event.id}>
               <p className="text-sm text-slate-700"><span className="font-medium text-slate-900">{event.actorEmail}</span> {activityText(event)}</p>

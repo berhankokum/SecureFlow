@@ -1,3 +1,4 @@
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiClient } from "@/lib/api/apiClient";
@@ -37,7 +38,7 @@ export function OrganizationDashboardPage() {
         <p className="mt-2 max-w-2xl text-sm text-slate-600">Yalnız erişebildiğiniz aktif projeler ve arşivlenmemiş işler. Tarihler UTC; yaklaşan işler bugün dahil 7 gün içindedir.</p></div>
       <button className={buttonClass} disabled={query.isFetching || !currentUser.data} onClick={() => void query.refetch()}>Yenile</button>
     </div>
-    {query.isLoading || currentUser.isLoading ? <p role="status">Dashboard yükleniyor...</p> : null}
+    {query.isLoading || currentUser.isLoading ? <LoadingState label="Dashboard yükleniyor..." /> : null}
     {query.isError || currentUser.isError ? <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-700">Dashboard yüklenemedi. Erişiminizi kontrol edip yeniden deneyin.</p> : null}
     {data ? <>
       <p className="text-xs text-slate-500">UTC günü: {data.today} · Veriler 30 saniyede bir yeniden kontrol edilir.</p>

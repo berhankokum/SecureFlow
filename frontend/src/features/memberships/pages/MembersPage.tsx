@@ -1,3 +1,4 @@
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
@@ -72,6 +73,7 @@ export function MembersPage() {
   };
 
   const revokeInvitation = async (invitationId: string) => {
+    if (!window.confirm("Bu davet iptal edilsin mi? Davet bağlantısı artık kullanılamayacak.")) return;
     setActionError(null);
     try {
       await revokeInvitationMutation.mutateAsync(invitationId);
@@ -101,12 +103,13 @@ export function MembersPage() {
       </div>
 
       {actionError ? (
-        <p className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>
+        <p role="alert" className="mt-5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>
       ) : null}
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        {membersQuery.isLoading ? <p className="p-5 text-sm text-slate-600">Üyeler yükleniyor...</p> : null}
-        {membersQuery.isError ? <p className="p-5 text-sm text-red-700">Üyeler yüklenemedi.</p> : null}
+      <div role="region" aria-label="Üye listesi" tabIndex={0} className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        {membersQuery.isLoading ? <LoadingState label="Üyeler yükleniyor..." /> : null}
+        {membersQuery.isError ? <p role="alert" className="p-5 text-sm text-red-700">Üyeler yüklenemedi.</p> : null}
+        {membersQuery.data?.length === 0 ? <p className="p-5 text-sm text-slate-600">Görüntülenecek üye yok.</p> : null}
         {membersQuery.data ? (
           <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
             <thead className="bg-slate-50 text-slate-600">
@@ -167,8 +170,8 @@ export function MembersPage() {
         <section className="mt-8">
           <h2 className="text-lg font-semibold text-slate-900">Bekleyen davetler</h2>
           <div className="mt-3 rounded-lg border border-slate-200 bg-white">
-            {invitationsQuery.isLoading ? <p className="p-5 text-sm text-slate-600">Davetler yükleniyor...</p> : null}
-            {invitationsQuery.isError ? <p className="p-5 text-sm text-red-700">Davetler yüklenemedi.</p> : null}
+            {invitationsQuery.isLoading ? <LoadingState label="Davetler yükleniyor..." /> : null}
+            {invitationsQuery.isError ? <p role="alert" className="p-5 text-sm text-red-700">Davetler yüklenemedi.</p> : null}
             {invitationsQuery.data?.length === 0 ? (
               <p className="p-5 text-sm text-slate-500">Bekleyen davet yok.</p>
             ) : null}

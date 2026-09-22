@@ -94,3 +94,22 @@ for (const options of [
     await expect(page.getByLabel("SF-1 hedef state")).toHaveCount(0);
   });
 }
+
+test("mobile board scroll stays inside its region and keyboard transition remains available", async ({ page }) => {
+  const requests = await arrange(page);
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto("/app/acme/projects/SF");
+  await page.getByRole("button", { name: "Kanban Board" }).click();
+  const board = page.getByRole("region", { name: "Kanban board", exact: true });
+  await expect(board.getByText("Kanban transition")).toBeVisible();
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 700 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(board).toHaveCSS("overflow-x", "auto");
+  }
+  const target = page.getByLabel("SF-1 hedef state");
+  await target.focus();
+  await target.press("ArrowDown");
+  await expect(page.getByRole("region", { name: "TODO kolonu" }).getByText("Kanban transition")).toBeVisible();
+  expect(requests).toHaveLength(1);
+});

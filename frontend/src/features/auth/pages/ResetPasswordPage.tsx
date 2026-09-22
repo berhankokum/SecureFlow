@@ -12,7 +12,7 @@ export function ResetPasswordPage() {
       {email && code ? (
         <ResetPasswordForm email={email} code={code} />
       ) : (
-        <p className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-600">
           Bağlantı geçersiz. Lütfen şifre sıfırlama e-postasındaki bağlantıyı kullanın.
         </p>
       )}

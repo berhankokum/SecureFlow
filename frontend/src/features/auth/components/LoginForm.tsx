@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -7,6 +7,7 @@ import { loginSchema, type LoginFormValues } from "../schemas/authSchemas";
 import { ApiError } from "@/lib/api/apiClient";
 
 export function LoginForm() {
+  const errorId = useId();
   const [formError, setFormError] = useState<string | null>(null);
   const loginMutation = useLogin();
   const navigate = useNavigate();
@@ -44,9 +45,9 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          {...field("email")}
+          aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? `${errorId}-email` : undefined} {...field("email")}
         />
-        {errors.email ? <p className="mt-1 text-sm text-red-600">{errors.email.message}</p> : null}
+        {errors.email ? <p id={`${errorId}-email`} role="alert" className="mt-1 text-sm text-red-600">{errors.email.message}</p> : null}
       </div>
 
       <div>
@@ -58,9 +59,9 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          {...field("password")}
+          aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? `${errorId}-password` : undefined} {...field("password")}
         />
-        {errors.password ? <p className="mt-1 text-sm text-red-600">{errors.password.message}</p> : null}
+        {errors.password ? <p id={`${errorId}-password`} role="alert" className="mt-1 text-sm text-red-600">{errors.password.message}</p> : null}
       </div>
 
       <button

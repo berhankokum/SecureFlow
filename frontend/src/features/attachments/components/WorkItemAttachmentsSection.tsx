@@ -1,3 +1,4 @@
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useRef, useState } from "react";
 import { permissions } from "@/features/authorization/permissions";
 import type { WorkItem } from "@/features/work-items/api/types";
@@ -88,7 +89,7 @@ export function WorkItemAttachmentsSection({ workItem, projectArchived }: {
     {canUpload ? <div onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void uploadFile(event.dataTransfer.files[0]); }} className="mt-4 rounded-md border border-dashed border-slate-300 px-4 py-5 text-center text-sm text-slate-500">Dosyayı buraya sürükleyip bırakabilirsiniz.</div> : null}
     {progress !== null ? <div className="mt-4"><div className="flex justify-between text-xs text-slate-600"><span>Yükleniyor</span><span>{progress}%</span></div><progress aria-label="Yükleme ilerlemesi" className="mt-1 w-full" max={100} value={progress} /></div> : null}
     {error ? <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-    {attachments.isLoading ? <p className="mt-4 text-sm text-slate-500">Attachment’lar yükleniyor...</p>
+    {attachments.isLoading ? <LoadingState label="Attachment’lar yükleniyor..." />
       : attachments.isError ? <p role="alert" className="mt-4 text-sm text-red-700">Attachment listesi yüklenemedi.</p>
         : attachments.data?.length ? <ul className="mt-4 space-y-3">{attachments.data.map(attachment => <AttachmentRow key={attachment.id} attachment={attachment} workItemId={workItem.id} />)}</ul>
           : <p className="mt-4 text-sm text-slate-500">Henüz attachment yok.</p>}
