@@ -9,10 +9,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Do not cancel a master release partway through publication.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # Credentials below belong only to this job's disposable migration database.
     env:
       ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=secureflow;Username=secureflow;Password=secureflow"
@@ -67,6 +73,7 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: frontend
@@ -78,7 +85,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -122,7 +129,7 @@ jobs:
           dotnet-version: "10.0.x"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend
@@ -187,3 +194,117 @@ jobs:
             "$RUNNER_TEMP/security-tools/trivy" image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress --timeout 5m "$image" || failed=1
           done < "$RUNNER_TEMP/secureflow-images.txt"
           exit "$failed"
+
+  production:
+    name: Production images and HTTPS smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      image-artifact-id: ${{ steps.transfer.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - name: Test release safety contracts
+        run: node --test .github/scripts/production-release.test.mjs
+      - name: Install smoke browser dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Build production runtime images once
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" -t secureflow-postgres:17-patched-20260919 infra/postgres
+          docker build --platform linux/amd64 --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" -f infra/production/Api.Dockerfile -t secureflow-api:phase27 .
+          docker build --platform linux/amd64 --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" -f infra/production/Frontend.Dockerfile -t secureflow-edge:phase27 .
+      - name: Install checksum-verified Trivy
+        run: bash .github/scripts/install-security-tool.sh trivy
+      - name: Scan exact production runtimes (High/Critical including unfixed)
+        run: |
+          set -euo pipefail
+          for image in secureflow-api:phase27 secureflow-edge:phase27 secureflow-postgres:17-patched-20260919; do
+            "$RUNNER_TEMP/security-tools/trivy" image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress --timeout 5m "$image"
+          done
+      - name: Isolated production HTTPS, SMTP, key persistence and browser smoke
+        run: dotnet run --project tools/production-smoke/ProductionSmoke.csproj --configuration Release -- --run
+      - name: Package the verified images without rebuilding
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.ENABLE_GHCR_PUBLISH == 'true'
+        run: |
+          set -euo pipefail
+          node .github/scripts/production-release.mjs snapshot "$RUNNER_TEMP/production-images"
+          docker save secureflow-api:phase27 secureflow-edge:phase27 secureflow-postgres:17-patched-20260919 -o "$RUNNER_TEMP/production-images/images.tar"
+          cd "$RUNNER_TEMP/production-images"
+          sha256sum images.tar > images.tar.sha256
+      - name: Transfer only verified images and identity record
+        id: transfer
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.ENABLE_GHCR_PUBLISH == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-images-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/production-images/images.tar
+            ${{ runner.temp }}/production-images/images.tar.sha256
+            ${{ runner.temp }}/production-images/images.json
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Publish verified GHCR release
+    needs: [backend, frontend, real-browser, secrets, containers, production]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.ENABLE_GHCR_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          artifact-ids: ${{ needs.production.outputs.image-artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/production-images
+      - name: Verify transferred image bytes and source identity
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/production-images"
+          sha256sum --check --strict images.tar.sha256
+          docker load -i images.tar
+          cd "$GITHUB_WORKSPACE"
+          node .github/scripts/production-release.mjs verify "$RUNNER_TEMP/production-images"
+      - name: Authenticate and publish exact tested images
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENABLE_GHCR_PUBLISH: ${{ vars.ENABLE_GHCR_PUBLISH }}
+          DOCKER_CONFIG: ${{ runner.temp }}/ghcr-auth
+        run: |
+          set -euo pipefail
+          mkdir -p "$DOCKER_CONFIG"
+          chmod 700 "$DOCKER_CONFIG"
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          unset GHCR_TOKEN
+          node .github/scripts/production-release.mjs publish "$RUNNER_TEMP/production-images"
+      - name: Store digest-pinned deployment inputs (not a live deployment)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-release-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/production-images/release.json
+            ${{ runner.temp }}/production-images/compose.production.yml
+            ${{ runner.temp }}/production-images/compose.release.yml
+          if-no-files-found: error
+          retention-days: 30

@@ -103,7 +103,7 @@ using var client = new HttpClient(handler) { BaseAddress = origin, Timeout = Tim
 try
 {
     await Docker([.. compose, "config", "--quiet"]);
-    await Docker([.. compose, "up", "-d", "--wait", "--wait-timeout", "120", "postgres", "redis", "object-storage", "mailpit"]);
+    await Docker([.. compose, "up", "-d", "--no-build", "--wait", "--wait-timeout", "120", "postgres", "redis", "object-storage", "mailpit"]);
     Console.WriteLine("PASS: isolated dependencies and secret mounts");
     var options = new DbContextOptionsBuilder<SecureFlowDbContext>().UseNpgsql("Host=unused;Database=unused").Options;
     using (var db = new SecureFlowDbContext(options, null!))
@@ -117,7 +117,7 @@ try
         await Docker([.. compose, "exec", "-T", "postgres", "psql", "-U", "secureflow_admin", "-d", "secureflow", "--set", "ON_ERROR_STOP=1"], sql);
     }
     Console.WriteLine("PASS: explicit migration of disposable database");
-    await Docker([.. compose, "up", "-d", "--wait", "--wait-timeout", "120", "api", "edge"]);
+    await Docker([.. compose, "up", "-d", "--no-build", "--wait", "--wait-timeout", "120", "api", "edge"]);
     Require((await client.GetAsync("/health/ready")).StatusCode == HttpStatusCode.OK, "HTTPS readiness");
     using (var plain = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }))
     {
@@ -164,14 +164,14 @@ try
         else await Task.Delay(500);
     }
     Require(!string.IsNullOrEmpty(confirmLink), "SMTP confirmation delivered to isolated Mailpit");
-    await Docker([.. compose, "up", "-d", "--no-deps", "--force-recreate", "--wait", "--wait-timeout", "90", "api"]);
+    await Docker([.. compose, "up", "-d", "--no-build", "--no-deps", "--force-recreate", "--wait", "--wait-timeout", "90", "api"]);
     // Nginx DNS cache expires after 10 seconds; bounded readiness polling below.
     await Ready();
     var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(confirmLink!).Query);
     Require((await client.PostAsJsonAsync("/api/v1/auth/confirm-email", new { userId = query["userId"].ToString(), code = query["code"].ToString() })).IsSuccessStatusCode,
         "old antiforgery and email token survive container recreation");
     Require((await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = accountPassword })).IsSuccessStatusCode, "login");
-    await Docker([.. compose, "up", "-d", "--no-deps", "--force-recreate", "--wait", "--wait-timeout", "90", "api"]);
+    await Docker([.. compose, "up", "-d", "--no-build", "--no-deps", "--force-recreate", "--wait", "--wait-timeout", "90", "api"]);
     await Ready();
     Require((await client.GetAsync("/api/v1/me")).IsSuccessStatusCode, "auth cookie survives container recreation");
     using (var socket = new System.Net.WebSockets.ClientWebSocket())
