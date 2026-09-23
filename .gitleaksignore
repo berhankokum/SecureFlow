@@ -1,0 +1,3 @@
+# Reviewed false positive: literal S3 placeholder in the original production template.
+# Exact historical commit/file/rule/line only; never ignore this file or rule globally.
+3e3b985296a184d70a3c543c8e27e527fc1c1a58:infra/production/settings.example.json:generic-api-key:17
