@@ -93,3 +93,7 @@ appsettings.*.local.json
 .env.*.local
 
 docs/
+
+# Reviewed public entry points only; real environments and private notes stay ignored.
+!/README.md
+!/.env.example
