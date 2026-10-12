@@ -54,6 +54,31 @@ public sealed class InvitationsController(
             : OrganizationErrorResult.Map(this, result.Error);
     }
 
+    [HttpGet("received/{invitationId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> GetReceived(Guid invitationId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId)) return Unauthorized();
+
+        var result = await getInvitationHandler.HandleReceivedAsync(invitationId, currentUserId, cancellationToken);
+        return result.IsSuccess
+            ? Ok(OrganizationInvitationDetailsResponse.From(result.Value))
+            : OrganizationErrorResult.Map(this, result.Error);
+    }
+
+    [HttpPost("received/{invitationId:guid}/accept")]
+    [Authorize]
+    [ValidateAntiforgery]
+    public async Task<IActionResult> AcceptReceived(Guid invitationId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId)) return Unauthorized();
+
+        var result = await acceptInvitationHandler.HandleReceivedAsync(invitationId, currentUserId, cancellationToken);
+        return result.IsSuccess
+            ? Ok(AcceptedInvitationResponse.From(result.Value))
+            : OrganizationErrorResult.Map(this, result.Error);
+    }
+
     private static bool IsValidTokenShape(string token) =>
         token.Length is >= 32 and <= 128
         && token.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
