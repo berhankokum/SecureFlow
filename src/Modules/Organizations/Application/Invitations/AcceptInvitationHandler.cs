@@ -24,6 +24,31 @@ public sealed class AcceptInvitationHandler(
             item => item.TokenHash == tokenHash,
             cancellationToken);
 
+        return await AcceptAsync(invitation, command.CurrentUserId, cancellationToken);
+    }
+
+    public async Task<Result<AcceptedInvitationSummary>> HandleReceivedAsync(
+        Guid invitationId,
+        Guid currentUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await userDirectory.FindByIdAsync(currentUserId, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure<AcceptedInvitationSummary>(OrganizationErrors.InvitationNotFound);
+        }
+
+        var email = OrganizationInvitation.NormalizeEmail(user.Email);
+        var invitation = await dbContext.OrganizationInvitations.SingleOrDefaultAsync(
+            item => item.Id == invitationId && item.Email == email, cancellationToken);
+        return await AcceptAsync(invitation, currentUserId, cancellationToken);
+    }
+
+    private async Task<Result<AcceptedInvitationSummary>> AcceptAsync(
+        OrganizationInvitation? invitation,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
         if (invitation is null)
         {
             return Result.Failure<AcceptedInvitationSummary>(OrganizationErrors.InvitationNotFound);
@@ -45,7 +70,7 @@ public sealed class AcceptInvitationHandler(
             return Result.Failure<AcceptedInvitationSummary>(OrganizationErrors.InvitationExpired);
         }
 
-        var currentUser = await userDirectory.FindByIdAsync(command.CurrentUserId, cancellationToken);
+        var currentUser = await userDirectory.FindByIdAsync(currentUserId, cancellationToken);
         if (currentUser is null
             || !string.Equals(
                 OrganizationInvitation.NormalizeEmail(currentUser.Email),
@@ -66,7 +91,7 @@ public sealed class AcceptInvitationHandler(
 
         var membership = await dbContext.OrganizationMembers.SingleOrDefaultAsync(member =>
             member.OrganizationId == invitation.OrganizationId
-            && member.UserId == command.CurrentUserId,
+            && member.UserId == currentUserId,
             cancellationToken);
 
         if (membership is { IsActive: true })
@@ -80,7 +105,7 @@ public sealed class AcceptInvitationHandler(
         {
             membership = OrganizationMember.CreateFromInvitation(
                 invitation.OrganizationId,
-                command.CurrentUserId,
+                currentUserId,
                 invitation.Role,
                 now,
                 invitation.CreatedBy);
